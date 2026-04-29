@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centers Attendance</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light fixed">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <img src="./images/logo.png" class="navbar-brand img" alt="Hayah Karima Foundation Logo" height="40" style="max-width: 200px; object-fit: contain;">
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="index.html">Sign In/Out</a>
+                <a class="nav-link" href="welcome.html">Welcome</a>
+                <a class="nav-link" href="admin.html">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Centers Attendance</h1>
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <form id="signInOutForm" class="needs-validation" novalidate>
+                    <div class="mb-3">
+                        <label for="username" class="text-center mb-4 h2 form-label">Employee Name *</label>
+                        <select class="form-select" id="username" required>
+                            <option value="">Choose an employee</option>
+                        </select>
+                        <div class="btn-danger h3 bold invalid-feedback">
+                            Please choose a valid employee.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="text-center mb-4 h2 form-label">Photo *</label>
+                        <div id="cameraContainer" class="border rounded p-2">
+                            <video id="video" class="w-100 mb-2" autoplay playsinline></video>
+                            <canvas id="canvas" class="w-100 d-none"></canvas>
+                            <div class="text-center">
+                                <button type="button" class="btn btn-secondary" id="captureBtn">
+                                    Take Photo
+                                </button>
+                            </div>
+                        </div>
+                        <div id="photoFeedback" class="invalid-feedback">
+                            Please take a photo before proceeding.
+                        </div>
+                        <div id="photoPreview" class="mt-2 text-center d-none">
+                            <img id="previewImage" class="img-fluid rounded" alt="Captured photo">
+                            <button type="button" class="btn btn-link mt-2" id="retakeBtn">
+                                Retake Photo
+                            </button>
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" id="signInBtn">Sign In</button>
+                        <button type="submit" class="btn btn-danger" id="signOutBtn">Sign Out</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="centers-data.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
+

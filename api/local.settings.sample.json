@@ -1,0 +1,11 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AZURE_STORAGE_CONNECTION_STRING": "UseDevelopmentStorage=true",
+    "ADMIN_PASSWORD": "replace-with-your-admin-password",
+    "ADMIN_JWT_SECRET": "replace-with-a-long-random-secret",
+    "PHOTOS_CONTAINER_NAME": "attendance-photos"
+  }
+}

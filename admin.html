@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centers Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <div id="adminAuthGate" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-75" style="z-index: 1080;">
+        <div class="card shadow-lg" style="width: min(92vw, 420px);">
+            <div class="card-body p-4">
+                <p class="text-uppercase text-muted small mb-2">Protected Page</p>
+                <h2 class="h4 mb-3">Admin Password Required</h2>
+                <p class="text-muted mb-3">Enter the admin password to view attendance records and settings.</p>
+                <form id="adminPasswordForm" novalidate>
+                    <label for="adminPasswordInput" class="form-label">Password</label>
+                    <input id="adminPasswordInput" type="password" class="form-control" autocomplete="current-password" required>
+                    <div id="adminPasswordError" class="text-danger small mt-2 d-none">Incorrect password. Please try again.</div>
+                    <button type="submit" class="btn btn-success w-100 mt-3">Open Admin Page</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <nav class="navbar navbar-expand-lg navbar-light fixed">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">
+                <img src="./images/logo.png" class="navbar-brand img" alt="Hayah Karima Foundation Logo" height="40" style="max-width: 200px; object-fit: contain;">
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="index.html">Sign In/Out</a>
+                <a class="nav-link" href="welcome.html">Welcome</a>
+                <a class="nav-link active" href="admin.html">Admin</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mt-5 admin-page d-none" id="adminContent">
+        <section class="admin-hero">
+            <div>
+                <p class="eyebrow mb-2">Attendance Dashboard</p>
+                <h1 class="admin-title mb-2">Centers Admin</h1>
+                <p class="admin-subtitle mb-0">Monitor attendance, generate reports, manage employees, and export everything you need from one page.</p>
+            </div>
+            <div class="admin-actions">
+                <a id="apiHealthLink" class="btn btn-outline-success" href="#" target="_blank" rel="noreferrer">Open API Health</a>
+                <button type="button" class="btn btn-outline-primary" id="exportBtn">Export Dashboard</button>
+                <button type="button" class="btn btn-outline-secondary" id="logoutBtn">Admin Logout</button>
+                <button type="button" class="btn btn-success" id="refreshBtn">Refresh Records</button>
+            </div>
+        </section>
+
+        <section class="status-panel mt-4" id="statusMessage">
+            Loading attendance records...
+        </section>
+
+        <section class="dashboard-grid mt-4">
+            <article class="summary-card accent-card">
+                <span class="summary-label">Current Month Records</span>
+                <strong class="summary-value" id="totalRecords">0</strong>
+                <span class="summary-note" id="currentMonthLabel">No month selected</span>
+            </article>
+            <article class="summary-card">
+                <span class="summary-label">Currently Signed In</span>
+                <strong class="summary-value" id="currentSignedInCount">0</strong>
+                <span class="summary-note">Employees with open sign-ins</span>
+            </article>
+            <article class="summary-card">
+                <span class="summary-label">Present Today</span>
+                <strong class="summary-value" id="presentTodayCount">0</strong>
+                <span class="summary-note">Employees with attendance today</span>
+            </article>
+            <article class="summary-card">
+                <span class="summary-label">Late Today</span>
+                <strong class="summary-value" id="lateTodayCount">0</strong>
+                <span class="summary-note">Based on workday settings</span>
+            </article>
+            <article class="summary-card">
+                <span class="summary-label">Absent Today</span>
+                <strong class="summary-value" id="absentTodayCount">0</strong>
+                <span class="summary-note">Active employees without attendance today</span>
+            </article>
+            <article class="summary-card">
+                <span class="summary-label">Missing Sign-outs</span>
+                <strong class="summary-value" id="missingSignOutCount">0</strong>
+                <span class="summary-note">Rows that still need sign-out</span>
+            </article>
+        </section>
+
+        <section class="filters-card mt-4">
+            <div class="row g-3 align-items-end">
+                <div class="col-lg-4">
+                    <label for="searchInput" class="form-label">Search Employee</label>
+                    <input id="searchInput" type="text" class="form-control" placeholder="Type an employee name">
+                </div>
+                <div class="col-lg-3">
+                    <label for="employeeFilter" class="form-label">Employee Detail</label>
+                    <select id="employeeFilter" class="form-select">
+                        <option value="">All employees</option>
+                    </select>
+                </div>
+                <div class="col-lg-3">
+                    <label for="monthFilter" class="form-label">Month</label>
+                    <select id="monthFilter" class="form-select">
+                        <option value="">Current month</option>
+                    </select>
+                </div>
+                <div class="col-lg-2">
+                    <label for="actionFilter" class="form-label">Action</label>
+                    <select id="actionFilter" class="form-select">
+                        <option value="all">All records</option>
+                        <option value="signin">Open sign-ins</option>
+                        <option value="signout">Completed sign-outs</option>
+                    </select>
+                </div>
+            </div>
+        </section>
+
+        <section class="insights-grid mt-4">
+            <article class="records-card">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow mb-1">Live Snapshot</p>
+                        <h2 class="section-title">Today Overview</h2>
+                    </div>
+                </div>
+                <div class="chip-group" id="todayChips"></div>
+            </article>
+            <article class="records-card">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow mb-1">Open Attendance</p>
+                        <h2 class="section-title">Currently Signed In</h2>
+                    </div>
+                </div>
+                <div id="currentSignedInList" class="insight-list"></div>
+            </article>
+            <article class="records-card">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow mb-1">Needs Attention</p>
+                        <h2 class="section-title">Late And Missing</h2>
+                    </div>
+                </div>
+                <div id="attentionList" class="insight-list"></div>
+            </article>
+            <article class="records-card">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow mb-1">Attendance Gap</p>
+                        <h2 class="section-title">Absent Today</h2>
+                    </div>
+                </div>
+                <div id="absentTodayList" class="insight-list"></div>
+            </article>
+        </section>
+
+        <section class="records-card mt-4">
+            <div class="section-header">
+                <div>
+                    <p class="eyebrow mb-1">Monthly Report</p>
+                    <h2 class="section-title">Employee Summary</h2>
+                </div>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="exportSummaryBtn">Export Monthly Summary</button>
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Employee</th>
+                            <th scope="col">Days Present</th>
+                            <th scope="col">Total Hours</th>
+                            <th scope="col">Avg / Day</th>
+                            <th scope="col">Late Days</th>
+                            <th scope="col">Early Leave</th>
+                            <th scope="col">Overtime</th>
+                            <th scope="col">Missing Sign-outs</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthlySummaryBody"></tbody>
+                </table>
+            </div>
+            <div id="monthlySummaryEmpty" class="empty-state d-none">
+                No employee summary is available for the selected month.
+            </div>
+        </section>
+
+        <section class="employee-detail-grid mt-4">
+            <article class="records-card">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow mb-1">Employee Drill-down</p>
+                        <h2 class="section-title" id="employeeDetailTitle">Employee Detail</h2>
+                    </div>
+                </div>
+                <div class="mini-summary-grid">
+                    <div class="mini-summary-card">
+                        <span class="summary-label">Days</span>
+                        <strong class="mini-summary-value" id="detailDaysPresent">0</strong>
+                    </div>
+                    <div class="mini-summary-card">
+                        <span class="summary-label">Total Hours</span>
+                        <strong class="mini-summary-value" id="detailTotalHours">0h 0m</strong>
+                    </div>
+                    <div class="mini-summary-card">
+                        <span class="summary-label">Late Minutes</span>
+                        <strong class="mini-summary-value" id="detailLateMinutes">0m</strong>
+                    </div>
+                    <div class="mini-summary-card">
+                        <span class="summary-label">Missing Sign-outs</span>
+                        <strong class="mini-summary-value" id="detailMissingSignOuts">0</strong>
+                    </div>
+                </div>
+                <div class="table-responsive mt-3">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Date</th>
+                                <th scope="col">Sign-in</th>
+                                <th scope="col">Sign-out</th>
+                                <th scope="col">Worked</th>
+                                <th scope="col">Late</th>
+                                <th scope="col">Early Leave</th>
+                                <th scope="col">Overtime</th>
+                                <th scope="col">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employeeDetailBody"></tbody>
+                    </table>
+                </div>
+                <div id="employeeDetailEmpty" class="empty-state d-none">
+                    Select an employee to see the daily report.
+                </div>
+            </article>
+
+            <article class="records-card">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow mb-1">Workday Rules</p>
+                        <h2 class="section-title">Attendance Settings</h2>
+                    </div>
+                </div>
+                <form id="settingsForm" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="workdayStartTime" class="form-label">Workday Start</label>
+                        <input id="workdayStartTime" type="time" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="workdayEndTime" class="form-label">Workday End</label>
+                        <input id="workdayEndTime" type="time" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="lateGraceMinutes" class="form-label">Late Grace (minutes)</label>
+                        <input id="lateGraceMinutes" type="number" min="0" class="form-control" required>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn btn-success">Save Workday Settings</button>
+                    </div>
+                </form>
+            </article>
+        </section>
+
+        <section class="management-grid mt-4">
+            <article class="records-card">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow mb-1">Employee Directory</p>
+                        <h2 class="section-title">Manage Employees</h2>
+                    </div>
+                </div>
+                <form id="employeeForm" class="row g-3">
+                    <input id="employeeIdInput" type="hidden">
+                    <div class="col-md-6">
+                        <label for="employeeNameInput" class="form-label">Full Name</label>
+                        <input id="employeeNameInput" type="text" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="employeeUsernameInput" class="form-label">Username</label>
+                        <input id="employeeUsernameInput" type="text" class="form-control" required>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <input id="employeeActiveInput" type="checkbox" class="form-check-input" checked>
+                            <label for="employeeActiveInput" class="form-check-label">Active</label>
+                        </div>
+                    </div>
+                    <div class="col-12 d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-success">Save Employee</button>
+                        <button type="button" class="btn btn-outline-secondary" id="resetEmployeeFormBtn">Reset Form</button>
+                    </div>
+                </form>
+                <div class="table-responsive mt-3">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Employee</th>
+                                <th scope="col">Username</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employeeDirectoryBody"></tbody>
+                    </table>
+                </div>
+            </article>
+
+            <article class="records-card">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow mb-1">Admin Activity</p>
+                        <h2 class="section-title">Audit Log</h2>
+                    </div>
+                </div>
+                <div id="auditLogList" class="audit-log-list"></div>
+            </article>
+        </section>
+
+        <section class="records-card mt-4">
+            <div class="section-header">
+                <div>
+                    <p class="eyebrow mb-1">Raw Attendance</p>
+                    <h2 class="section-title">Attendance Records</h2>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Employee Name</th>
+                            <th scope="col">Sign-in Date</th>
+                            <th scope="col">Sign-in Time</th>
+                            <th scope="col">Sign-in Photo</th>
+                            <th scope="col">Sign-out Date</th>
+                            <th scope="col">Sign-out Time</th>
+                            <th scope="col">Sign-out Photo</th>
+                            <th scope="col">Duration</th>
+                            <th scope="col">Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recordsTableBody"></tbody>
+                </table>
+            </div>
+            <div id="emptyState" class="empty-state d-none">
+                No attendance records match the current filter.
+            </div>
+        </section>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="centers-data.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>

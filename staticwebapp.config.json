@@ -1,0 +1,15 @@
+{
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "X-Frame-Options": "DENY"
+  },
+  "routes": [
+    {
+      "route": "/admin.html",
+      "headers": {
+        "Cache-Control": "no-store"
+      }
+    }
+  ]
+}
