@@ -1,6 +1,6 @@
 const { app } = require("@azure/functions")
 const { getConfig } = require("../lib/config")
-const { createAdminSessionCookie, clearAdminSessionCookie, requireAdmin } = require("../lib/auth")
+const { createAdminToken, createAdminSessionCookie, clearAdminSessionCookie, requireAdmin } = require("../lib/auth")
 const { errorResponse, json } = require("../lib/responses")
 const {
   ensureStorage,
@@ -62,9 +62,11 @@ app.http("auth-login", {
       return errorResponse(401, "Incorrect admin password.")
     }
 
+    const token = createAdminToken()
     return json(
       {
-        ok: true
+        ok: true,
+        token
       },
       200,
       {

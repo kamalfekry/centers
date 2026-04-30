@@ -1,6 +1,7 @@
 (function initializeCentersDataApi() {
   const appConfig = window.CENTERS_CONFIG || {}
   const apiBaseUrl = String(appConfig.apiBaseUrl || "/api").replace(/\/$/, "")
+  let adminSessionToken = ""
 
   const defaultWorkSettings = {
     workdayStartTime: "09:00",
@@ -13,13 +14,17 @@
   }
 
   async function apiRequest(path, options = {}) {
-    const { body, headers = {}, method = "GET" } = options
+    const { auth = false, body, headers = {}, method = "GET" } = options
     const requestHeaders = {
       ...headers
     }
 
     if (body !== undefined) {
       requestHeaders["Content-Type"] = "application/json"
+    }
+
+    if (auth && adminSessionToken) {
+      requestHeaders.Authorization = `Bearer ${adminSessionToken}`
     }
 
     const response = await fetch(buildUrl(path), {
@@ -60,10 +65,14 @@
       body: {
         password
       }
+    }).then((payload) => {
+      adminSessionToken = String(payload?.token || "")
+      return payload
     })
   }
 
   function logoutAdmin() {
+    adminSessionToken = ""
     return apiRequest("/auth-logout", {
       method: "POST"
     })
@@ -71,7 +80,9 @@
 
   async function checkAdminSession() {
     try {
-      const payload = await apiRequest("/auth-session")
+      const payload = await apiRequest("/auth-session", {
+        auth: true
+      })
       return Boolean(payload?.ok)
     } catch (error) {
       return false
@@ -79,25 +90,30 @@
   }
 
   function getAdminBootstrap() {
-    return apiRequest("/dashboard-bootstrap")
+    return apiRequest("/dashboard-bootstrap", {
+      auth: true
+    })
   }
 
   function saveEmployee(profile) {
     return apiRequest("/dashboard-employees", {
       method: "POST",
+      auth: true,
       body: profile
     })
   }
 
   function deleteEmployee(employeeId) {
     return apiRequest(`/dashboard-employees?id=${encodeURIComponent(employeeId)}`, {
-      method: "DELETE"
+      method: "DELETE",
+      auth: true
     })
   }
 
   function saveWorkSettings(settings) {
     return apiRequest("/dashboard-settings", {
       method: "POST",
+      auth: true,
       body: settings
     })
   }
