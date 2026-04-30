@@ -20,7 +20,7 @@ const {
 app.http("public-bootstrap", {
   methods: ["GET"],
   authLevel: "anonymous",
-  route: "public/bootstrap",
+  route: "public-bootstrap",
   handler: async () => {
     await ensureStorage()
     const employees = (await listEmployees()).filter((employee) => employee.active !== false)
@@ -50,7 +50,7 @@ app.http("health", {
 app.http("auth-login", {
   methods: ["POST"],
   authLevel: "anonymous",
-  route: "auth/login",
+  route: "auth-login",
   handler: async (request) => {
     const body = await readJsonBody(request)
     if (!body?.password) {
@@ -77,7 +77,7 @@ app.http("auth-login", {
 app.http("auth-session", {
   methods: ["GET"],
   authLevel: "anonymous",
-  route: "auth/session",
+  route: "auth-session",
   handler: async (request) => {
     const authError = requireAdmin(request)
     if (authError) {
@@ -93,7 +93,7 @@ app.http("auth-session", {
 app.http("auth-logout", {
   methods: ["POST"],
   authLevel: "anonymous",
-  route: "auth/logout",
+  route: "auth-logout",
   handler: async (request) => {
     return json(
       {
@@ -110,7 +110,7 @@ app.http("auth-logout", {
 app.http("attendance-signin", {
   methods: ["POST"],
   authLevel: "anonymous",
-  route: "attendance/signin",
+  route: "attendance-signin",
   handler: async (request) => {
     const body = await readJsonBody(request)
     if (!body?.employeeId || !body?.employeeName) {
@@ -129,7 +129,7 @@ app.http("attendance-signin", {
 app.http("attendance-signout", {
   methods: ["POST"],
   authLevel: "anonymous",
-  route: "attendance/signout",
+  route: "attendance-signout",
   handler: async (request) => {
     const body = await readJsonBody(request)
     if (!body?.employeeId || !body?.employeeName) {
@@ -148,7 +148,7 @@ app.http("attendance-signout", {
 app.http("admin-bootstrap", {
   methods: ["GET"],
   authLevel: "anonymous",
-  route: "admin/bootstrap",
+  route: "admin-bootstrap",
   handler: async (request) => {
     const authError = requireAdmin(request)
     if (authError) {
@@ -175,7 +175,7 @@ app.http("admin-bootstrap", {
 app.http("admin-employees", {
   methods: ["POST", "DELETE"],
   authLevel: "anonymous",
-  route: "admin/employees",
+  route: "admin-employees",
   handler: async (request) => {
     const authError = requireAdmin(request)
     if (authError) {
@@ -214,7 +214,7 @@ app.http("admin-employees", {
 app.http("admin-settings", {
   methods: ["POST"],
   authLevel: "anonymous",
-  route: "admin/settings",
+  route: "admin-settings",
   handler: async (request) => {
     const authError = requireAdmin(request)
     if (authError) {

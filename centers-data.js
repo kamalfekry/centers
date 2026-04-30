@@ -51,11 +51,11 @@
   }
 
   function getPublicBootstrap() {
-    return apiRequest("/public/bootstrap")
+    return apiRequest("/public-bootstrap")
   }
 
   function loginAdmin(password) {
-    return apiRequest("/auth/login", {
+    return apiRequest("/auth-login", {
       method: "POST",
       body: {
         password
@@ -64,14 +64,14 @@
   }
 
   function logoutAdmin() {
-    return apiRequest("/auth/logout", {
+    return apiRequest("/auth-logout", {
       method: "POST"
     })
   }
 
   async function checkAdminSession() {
     try {
-      const payload = await apiRequest("/auth/session")
+      const payload = await apiRequest("/auth-session")
       return Boolean(payload?.ok)
     } catch (error) {
       return false
@@ -79,31 +79,31 @@
   }
 
   function getAdminBootstrap() {
-    return apiRequest("/admin/bootstrap")
+    return apiRequest("/admin-bootstrap")
   }
 
   function saveEmployee(profile) {
-    return apiRequest("/admin/employees", {
+    return apiRequest("/admin-employees", {
       method: "POST",
       body: profile
     })
   }
 
   function deleteEmployee(employeeId) {
-    return apiRequest(`/admin/employees?id=${encodeURIComponent(employeeId)}`, {
+    return apiRequest(`/admin-employees?id=${encodeURIComponent(employeeId)}`, {
       method: "DELETE"
     })
   }
 
   function saveWorkSettings(settings) {
-    return apiRequest("/admin/settings", {
+    return apiRequest("/admin-settings", {
       method: "POST",
       body: settings
     })
   }
 
   function submitAttendance(action, payload) {
-    return apiRequest(`/attendance/${action}`, {
+    return apiRequest(`/attendance-${action}`, {
       method: "POST",
       body: payload
     })
