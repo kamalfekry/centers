@@ -53,11 +53,15 @@ const employeeNameInput = document.getElementById("employeeNameInput")
 const employeeUsernameInput = document.getElementById("employeeUsernameInput")
 const employeeActiveInput = document.getElementById("employeeActiveInput")
 const resetEmployeeFormBtn = document.getElementById("resetEmployeeFormBtn")
+const syncImportedEmployeesBtn = document.getElementById("syncImportedEmployeesBtn")
 const employeeDirectoryBody = document.getElementById("employeeDirectoryBody")
 const auditLogList = document.getElementById("auditLogList")
 
 const recordsTableBody = document.getElementById("recordsTableBody")
 const emptyState = document.getElementById("emptyState")
+const deleteSelectedRecordsBtn = document.getElementById("deleteSelectedRecordsBtn")
+const deleteOldRecordsBtn = document.getElementById("deleteOldRecordsBtn")
+const selectAllRecordsCheckbox = document.getElementById("selectAllRecordsCheckbox")
 
 let allRecords = []
 let employeeProfiles = []
@@ -67,6 +71,7 @@ let workSettings = centersData.defaultWorkSettings || {
   lateGraceMinutes: 15
 }
 let auditLogEntries = []
+let selectedRecordIds = new Set()
 let currentView = {
   enrichedRecords: [],
   monthRecords: [],
@@ -95,6 +100,10 @@ actionFilter.addEventListener("change", deriveAndRender)
 settingsForm.addEventListener("submit", handleSettingsSave)
 employeeForm.addEventListener("submit", handleEmployeeSave)
 resetEmployeeFormBtn.addEventListener("click", resetEmployeeForm)
+syncImportedEmployeesBtn.addEventListener("click", handleSyncImportedEmployees)
+deleteSelectedRecordsBtn.addEventListener("click", handleDeleteSelectedRecords)
+deleteOldRecordsBtn.addEventListener("click", handleDeleteOldRecords)
+selectAllRecordsCheckbox.addEventListener("change", handleSelectAllRecords)
 
 function setupApiHealthLink() {
   if (apiHealthLink) {
@@ -201,6 +210,8 @@ function deriveAndRender() {
   const summaries = buildMonthlySummaries(monthRecords)
   const detailSummary = buildEmployeeDetail(monthRecords, summaries)
   const todayOverview = buildTodayOverview(enrichedRecords)
+  const visibleRecordIds = new Set(enrichedRecords.map((record) => record.recordId).filter(Boolean))
+  selectedRecordIds = new Set(Array.from(selectedRecordIds).filter((recordId) => visibleRecordIds.has(recordId)))
 
   currentView = {
     enrichedRecords,
@@ -270,6 +281,119 @@ async function handleEmployeeSave(event) {
     console.error("Unable to save employee:", error)
     setStatus(error.message || "Unable to save employee.")
   }
+}
+
+async function handleSyncImportedEmployees() {
+  const openAttendanceExists = currentView.todayOverview?.currentSignedIn?.length > 0
+  if (openAttendanceExists) {
+    setStatus("Some employees are currently signed in. Please complete sign-outs before replacing the employee list.")
+    return
+  }
+
+  if (!window.confirm("Replace the current employee list with the imported workbook employees? This will remove the existing employee directory on Azure.")) {
+    return
+  }
+
+  try {
+    const response = await centersData.syncImportedEmployees()
+    setStatus(`Replaced the employee list with ${response.replacedCount || 0} imported employees.`)
+    await loadAdminState()
+  } catch (error) {
+    console.error("Unable to sync imported employees:", error)
+    setStatus(error.message || "Unable to replace the employee list.")
+  }
+}
+
+async function handleDeleteOldRecords() {
+  const beforeMonthKey = getSelectedMonthKey()
+  const monthLabel = formatMonthLabel(beforeMonthKey)
+  const password = window.prompt(`Enter the admin password to delete all attendance records before ${monthLabel}.`)
+
+  if (password === null) {
+    return
+  }
+
+  if (!password.trim()) {
+    setStatus("The admin password is required to delete old records.")
+    return
+  }
+
+  if (!window.confirm(`Delete all attendance records before ${monthLabel}? This action cannot be undone.`)) {
+    return
+  }
+
+  try {
+    const response = await centersData.deleteRecordsBeforeMonth(beforeMonthKey, password.trim())
+    setStatus(`Deleted ${response.deletedCount || 0} old attendance records before ${monthLabel}.`)
+    await loadAdminState()
+  } catch (error) {
+    console.error("Unable to delete old attendance records:", error)
+    setStatus(error.message || "Unable to delete old attendance records.")
+  }
+}
+
+async function handleDeleteSelectedRecords() {
+  const recordIds = Array.from(selectedRecordIds)
+  if (!recordIds.length) {
+    setStatus("Select the attendance records you want to delete first.")
+    return
+  }
+
+  const password = window.prompt(`Enter the admin password to delete ${recordIds.length} selected attendance records.`)
+  if (password === null) {
+    return
+  }
+
+  if (!password.trim()) {
+    setStatus("The admin password is required to delete selected records.")
+    return
+  }
+
+  if (!window.confirm(`Delete ${recordIds.length} selected attendance records? This action cannot be undone.`)) {
+    return
+  }
+
+  try {
+    const response = await centersData.deleteSelectedRecords(recordIds, password.trim())
+    selectedRecordIds.clear()
+    setStatus(`Deleted ${response.deletedCount || 0} selected attendance records.`)
+    await loadAdminState()
+  } catch (error) {
+    console.error("Unable to delete selected attendance records:", error)
+    setStatus(error.message || "Unable to delete selected attendance records.")
+  }
+}
+
+function handleSelectAllRecords() {
+  const visibleRecords = currentView.filteredRecords.filter((record) => record.recordId)
+  if (!visibleRecords.length) {
+    selectedRecordIds.clear()
+    syncSelectAllCheckbox(visibleRecords)
+    return
+  }
+
+  if (selectAllRecordsCheckbox.checked) {
+    visibleRecords.forEach((record) => {
+      selectedRecordIds.add(record.recordId)
+    })
+  } else {
+    visibleRecords.forEach((record) => {
+      selectedRecordIds.delete(record.recordId)
+    })
+  }
+
+  renderRecords(currentView.filteredRecords)
+}
+
+function syncSelectAllCheckbox(records) {
+  if (!selectAllRecordsCheckbox) {
+    return
+  }
+
+  const visibleRecordIds = records.map((record) => record.recordId).filter(Boolean)
+  const selectedVisibleCount = visibleRecordIds.filter((recordId) => selectedRecordIds.has(recordId)).length
+  selectAllRecordsCheckbox.checked = visibleRecordIds.length > 0 && selectedVisibleCount === visibleRecordIds.length
+  selectAllRecordsCheckbox.indeterminate = selectedVisibleCount > 0 && selectedVisibleCount < visibleRecordIds.length
 }
 
 function resetEmployeeForm() {
@@ -403,6 +527,7 @@ function normalizeAttendanceRow(record) {
 
   const employeeName = String(record.employeeName || record.username || "Unknown").trim()
   return {
+    recordId: String(record.recordId || "").trim(),
     employeeId: String(record.employeeId || "").trim() || employeeName,
     employeeName,
     username: employeeName,
@@ -761,14 +886,25 @@ function renderRecords(records) {
   if (!records.length) {
     recordsTableBody.innerHTML = ""
     emptyState.classList.remove("d-none")
+    syncSelectAllCheckbox([])
     return
   }
 
   emptyState.classList.add("d-none")
   recordsTableBody.innerHTML = records
     .map((record) => {
+      const isSelected = record.recordId && selectedRecordIds.has(record.recordId)
       return `
         <tr>
+          <td>
+            <input
+              type="checkbox"
+              class="form-check-input record-select-checkbox"
+              data-record-id="${escapeHtml(record.recordId)}"
+              ${isSelected ? "checked" : ""}
+              aria-label="Select attendance record for ${escapeHtml(record.employeeName)}"
+            >
+          </td>
           <td class="fw-semibold">${escapeHtml(record.employeeName)}</td>
           <td>${escapeHtml(record.signInDate)}</td>
           <td>${escapeHtml(record.signInTime)}</td>
@@ -782,6 +918,25 @@ function renderRecords(records) {
       `
     })
     .join("")
+
+  recordsTableBody.querySelectorAll(".record-select-checkbox").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const recordId = String(checkbox.dataset.recordId || "").trim()
+      if (!recordId) {
+        return
+      }
+
+      if (checkbox.checked) {
+        selectedRecordIds.add(recordId)
+      } else {
+        selectedRecordIds.delete(recordId)
+      }
+
+      syncSelectAllCheckbox(records)
+    })
+  })
+
+  syncSelectAllCheckbox(records)
 }
 
 function renderAuditLog() {

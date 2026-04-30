@@ -166,6 +166,21 @@ async function deleteEmployee(employeeId) {
   await tables.employees.deleteEntity("employee", employeeId)
 }
 
+async function replaceEmployeesWithDefaults() {
+  const { tables } = await ensureStorage()
+  const existingEmployees = []
+  for await (const entity of tables.employees.listEntities()) {
+    existingEmployees.push(entity)
+  }
+
+  for (const entity of existingEmployees) {
+    await tables.employees.deleteEntity(entity.partitionKey, entity.rowKey)
+  }
+
+  await Promise.all(defaultEmployeeProfiles.map((employee) => upsertEmployee(employee, tables.employees)))
+  return listEmployees()
+}
+
 async function getWorkSettings() {
   const { tables } = await ensureStorage()
   const entity = await getEntity(tables.settings, "settings", "attendance")
@@ -457,6 +472,7 @@ async function listAttendanceRecords() {
   const records = []
   for await (const entity of tables.attendance.listEntities()) {
     records.push({
+      recordId: `${entity.partitionKey}__${entity.rowKey}`,
       employeeId: entity.employeeId,
       employeeName: entity.employeeName,
       employeeUsername: entity.employeeUsername,
@@ -494,6 +510,52 @@ async function listOpenAttendanceEmployeeIds() {
   return Array.from(employeeIds)
 }
 
+async function deleteAttendanceRecordsBefore(cutoffIso) {
+  const { tables } = await ensureStorage()
+  const cutoffDate = new Date(cutoffIso)
+  if (Number.isNaN(cutoffDate.getTime())) {
+    throw new Error("Invalid cutoff date.")
+  }
+
+  let deletedCount = 0
+  for await (const entity of tables.attendance.listEntities()) {
+    const entityTimestamp = entity.signInTimestamp || entity.timestamp || entity.signOutTimestamp || ""
+    const recordDate = new Date(entityTimestamp)
+    if (Number.isNaN(recordDate.getTime()) || recordDate >= cutoffDate) {
+      continue
+    }
+
+    await tables.attendance.deleteEntity(entity.partitionKey, entity.rowKey)
+    deletedCount += 1
+  }
+
+  return deletedCount
+}
+
+async function deleteSelectedAttendanceRecords(recordIds) {
+  const { tables } = await ensureStorage()
+  const uniqueRecordIds = Array.from(new Set((recordIds || []).map((item) => String(item || "").trim()).filter(Boolean)))
+  let deletedCount = 0
+
+  for (const recordId of uniqueRecordIds) {
+    const [partitionKey, rowKey] = recordId.split("__")
+    if (!partitionKey || !rowKey) {
+      continue
+    }
+
+    try {
+      await tables.attendance.deleteEntity(partitionKey, rowKey)
+      deletedCount += 1
+    } catch (error) {
+      if (error.statusCode !== 404) {
+        throw error
+      }
+    }
+  }
+
+  return deletedCount
+}
+
 function escapeODataValue(value) {
   return String(value || "").replace(/'/g, "''")
 }
@@ -503,6 +565,7 @@ module.exports = {
   listEmployees,
   upsertEmployee,
   deleteEmployee,
+  replaceEmployeesWithDefaults,
   getWorkSettings,
   saveWorkSettings,
   addAuditLogEntry,
@@ -510,5 +573,7 @@ module.exports = {
   createAttendanceSignIn,
   completeAttendanceSignOut,
   listAttendanceRecords,
-  listOpenAttendanceEmployeeIds
+  listOpenAttendanceEmployeeIds,
+  deleteAttendanceRecordsBefore,
+  deleteSelectedAttendanceRecords
 }

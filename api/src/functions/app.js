@@ -7,6 +7,7 @@ const {
   listEmployees,
   upsertEmployee,
   deleteEmployee,
+  replaceEmployeesWithDefaults,
   getWorkSettings,
   saveWorkSettings,
   addAuditLogEntry,
@@ -14,7 +15,9 @@ const {
   createAttendanceSignIn,
   completeAttendanceSignOut,
   listAttendanceRecords,
-  listOpenAttendanceEmployeeIds
+  listOpenAttendanceEmployeeIds,
+  deleteAttendanceRecordsBefore,
+  deleteSelectedAttendanceRecords
 } = require("../lib/storage")
 
 app.http("public-bootstrap", {
@@ -213,6 +216,32 @@ app.http("dashboard-employees", {
   }
 })
 
+app.http("dashboard-sync-employees", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "dashboard-sync-employees",
+  handler: async (request) => {
+    const authError = requireAdmin(request)
+    if (authError) {
+      return authError
+    }
+
+    const openEmployeeIds = await listOpenAttendanceEmployeeIds()
+    if (openEmployeeIds.length) {
+      return errorResponse(409, "Some employees are currently signed in. Please complete sign-outs before replacing the employee list.")
+    }
+
+    const employees = await replaceEmployeesWithDefaults()
+    await addAuditLogEntry("Replaced employee list", `Synced ${employees.length} employees from the imported workbook.`)
+
+    return json({
+      ok: true,
+      employees,
+      replacedCount: employees.length
+    })
+  }
+})
+
 app.http("dashboard-settings", {
   methods: ["POST"],
   authLevel: "anonymous",
@@ -233,6 +262,74 @@ app.http("dashboard-settings", {
     return json({
       ok: true,
       settings
+    })
+  }
+})
+
+app.http("dashboard-delete-records", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "dashboard-delete-records",
+  handler: async (request) => {
+    const authError = requireAdmin(request)
+    if (authError) {
+      return authError
+    }
+
+    const body = await readJsonBody(request)
+    const password = String(body?.password || "")
+    const beforeMonthKey = String(body?.beforeMonthKey || "").trim()
+    const config = getConfig()
+
+    if (password !== config.adminPassword) {
+      return errorResponse(403, "Incorrect admin password.")
+    }
+
+    if (!/^\d{4}-\d{2}$/.test(beforeMonthKey)) {
+      return errorResponse(400, "A valid month must be selected before deleting old records.")
+    }
+
+    const [yearText, monthText] = beforeMonthKey.split("-")
+    const cutoffIso = new Date(Date.UTC(Number(yearText), Number(monthText) - 1, 1)).toISOString()
+    const deletedCount = await deleteAttendanceRecordsBefore(cutoffIso)
+    await addAuditLogEntry("Deleted old attendance records", `Deleted ${deletedCount} records before ${beforeMonthKey}.`)
+
+    return json({
+      ok: true,
+      deletedCount
+    })
+  }
+})
+
+app.http("dashboard-delete-selected-records", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "dashboard-delete-selected-records",
+  handler: async (request) => {
+    const authError = requireAdmin(request)
+    if (authError) {
+      return authError
+    }
+
+    const body = await readJsonBody(request)
+    const password = String(body?.password || "")
+    const recordIds = Array.isArray(body?.recordIds) ? body.recordIds : []
+    const config = getConfig()
+
+    if (password !== config.adminPassword) {
+      return errorResponse(403, "Incorrect admin password.")
+    }
+
+    if (!recordIds.length) {
+      return errorResponse(400, "Select at least one attendance record to delete.")
+    }
+
+    const deletedCount = await deleteSelectedAttendanceRecords(recordIds)
+    await addAuditLogEntry("Deleted selected attendance records", `Deleted ${deletedCount} manually selected attendance records.`)
+
+    return json({
+      ok: true,
+      deletedCount
     })
   }
 })

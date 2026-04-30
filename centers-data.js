@@ -118,6 +118,35 @@
     })
   }
 
+  function syncImportedEmployees() {
+    return apiRequest("/dashboard-sync-employees", {
+      method: "POST",
+      auth: true
+    })
+  }
+
+  function deleteRecordsBeforeMonth(beforeMonthKey, password) {
+    return apiRequest("/dashboard-delete-records", {
+      method: "POST",
+      auth: true,
+      body: {
+        beforeMonthKey,
+        password
+      }
+    })
+  }
+
+  function deleteSelectedRecords(recordIds, password) {
+    return apiRequest("/dashboard-delete-selected-records", {
+      method: "POST",
+      auth: true,
+      body: {
+        recordIds,
+        password
+      }
+    })
+  }
+
   function submitAttendance(action, payload) {
     return apiRequest(`/attendance-${action}`, {
       method: "POST",
@@ -141,6 +170,9 @@
     saveEmployee,
     deleteEmployee,
     saveWorkSettings,
+    syncImportedEmployees,
+    deleteRecordsBeforeMonth,
+    deleteSelectedRecords,
     submitAttendance,
     getApiHealthUrl
   }

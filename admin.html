@@ -289,6 +289,7 @@
                     <div class="col-12 d-flex flex-wrap gap-2">
                         <button type="submit" class="btn btn-success">Save Employee</button>
                         <button type="button" class="btn btn-outline-secondary" id="resetEmployeeFormBtn">Reset Form</button>
+                        <button type="button" class="btn btn-outline-primary" id="syncImportedEmployeesBtn">Replace With Imported Employees</button>
                     </div>
                 </form>
                 <div class="table-responsive mt-3">
@@ -323,11 +324,18 @@
                     <p class="eyebrow mb-1">Raw Attendance</p>
                     <h2 class="section-title">Attendance Records</h2>
                 </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-outline-danger btn-sm" id="deleteSelectedRecordsBtn">Delete Selected Records</button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" id="deleteOldRecordsBtn">Delete Records Before Selected Month</button>
+                </div>
             </div>
             <div class="table-responsive">
                 <table class="table align-middle mb-0">
                     <thead>
                         <tr>
+                            <th scope="col" style="width: 48px;">
+                                <input id="selectAllRecordsCheckbox" type="checkbox" class="form-check-input" aria-label="Select all visible attendance records">
+                            </th>
                             <th scope="col">Employee Name</th>
                             <th scope="col">Sign-in Date</th>
                             <th scope="col">Sign-in Time</th>
