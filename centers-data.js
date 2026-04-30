@@ -79,24 +79,24 @@
   }
 
   function getAdminBootstrap() {
-    return apiRequest("/admin-bootstrap")
+    return apiRequest("/dashboard-bootstrap")
   }
 
   function saveEmployee(profile) {
-    return apiRequest("/admin-employees", {
+    return apiRequest("/dashboard-employees", {
       method: "POST",
       body: profile
     })
   }
 
   function deleteEmployee(employeeId) {
-    return apiRequest(`/admin-employees?id=${encodeURIComponent(employeeId)}`, {
+    return apiRequest(`/dashboard-employees?id=${encodeURIComponent(employeeId)}`, {
       method: "DELETE"
     })
   }
 
   function saveWorkSettings(settings) {
-    return apiRequest("/admin-settings", {
+    return apiRequest("/dashboard-settings", {
       method: "POST",
       body: settings
     })

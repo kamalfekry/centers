@@ -145,10 +145,10 @@ app.http("attendance-signout", {
   }
 })
 
-app.http("admin-bootstrap", {
+app.http("dashboard-bootstrap", {
   methods: ["GET"],
   authLevel: "anonymous",
-  route: "admin-bootstrap",
+  route: "dashboard-bootstrap",
   handler: async (request) => {
     const authError = requireAdmin(request)
     if (authError) {
@@ -172,10 +172,10 @@ app.http("admin-bootstrap", {
   }
 })
 
-app.http("admin-employees", {
+app.http("dashboard-employees", {
   methods: ["POST", "DELETE"],
   authLevel: "anonymous",
-  route: "admin-employees",
+  route: "dashboard-employees",
   handler: async (request) => {
     const authError = requireAdmin(request)
     if (authError) {
@@ -211,10 +211,10 @@ app.http("admin-employees", {
   }
 })
 
-app.http("admin-settings", {
+app.http("dashboard-settings", {
   methods: ["POST"],
   authLevel: "anonymous",
-  route: "admin-settings",
+  route: "dashboard-settings",
   handler: async (request) => {
     const authError = requireAdmin(request)
     if (authError) {
