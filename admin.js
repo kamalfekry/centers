@@ -72,6 +72,7 @@ let workSettings = centersData.defaultWorkSettings || {
 }
 let auditLogEntries = []
 let selectedRecordIds = new Set()
+let isSyncingImportedEmployees = false
 let currentView = {
   enrichedRecords: [],
   monthRecords: [],
@@ -229,6 +230,7 @@ function deriveAndRender() {
   renderRecords(filteredRecords)
   renderEmployeeDirectory()
   renderAuditLog()
+  syncImportedEmployeesButtonState(todayOverview)
 }
 
 function loadWorkSettingsIntoForm() {
@@ -284,9 +286,15 @@ async function handleEmployeeSave(event) {
 }
 
 async function handleSyncImportedEmployees() {
+  if (isSyncingImportedEmployees) {
+    return
+  }
+
   const openAttendanceExists = currentView.todayOverview?.currentSignedIn?.length > 0
   if (openAttendanceExists) {
-    setStatus("Some employees are currently signed in. Please complete sign-outs before replacing the employee list.")
+    const message = "Some employees are currently signed in. Please complete sign-outs before replacing the employee list."
+    setStatus(message)
+    window.alert(message)
     return
   }
 
@@ -295,12 +303,22 @@ async function handleSyncImportedEmployees() {
   }
 
   try {
+    isSyncingImportedEmployees = true
+    syncImportedEmployeesButtonState(currentView.todayOverview)
+    setStatus("Replacing the employee list with the imported workbook employees...")
     const response = await centersData.syncImportedEmployees()
-    setStatus(`Replaced the employee list with ${response.replacedCount || 0} imported employees.`)
+    const successMessage = `Replaced the employee list with ${response.replacedCount || 0} imported employees.`
+    setStatus(successMessage)
+    window.alert(successMessage)
     await loadAdminState()
   } catch (error) {
     console.error("Unable to sync imported employees:", error)
-    setStatus(error.message || "Unable to replace the employee list.")
+    const message = error.message || "Unable to replace the employee list."
+    setStatus(message)
+    window.alert(message)
+  } finally {
+    isSyncingImportedEmployees = false
+    syncImportedEmployeesButtonState(currentView.todayOverview)
   }
 }
 
@@ -436,6 +454,26 @@ function renderEmployeeDirectory() {
       deleteEmployee(button.dataset.employeeId)
     })
   })
+}
+
+function syncImportedEmployeesButtonState(todayOverview) {
+  if (!syncImportedEmployeesBtn) {
+    return
+  }
+
+  const hasOpenAttendance = Boolean(todayOverview?.currentSignedIn?.length)
+  syncImportedEmployeesBtn.disabled = isSyncingImportedEmployees || hasOpenAttendance
+
+  if (isSyncingImportedEmployees) {
+    syncImportedEmployeesBtn.textContent = "Replacing Employees..."
+    syncImportedEmployeesBtn.title = "Please wait while Azure updates the employee list."
+    return
+  }
+
+  syncImportedEmployeesBtn.textContent = "Replace With Imported Employees"
+  syncImportedEmployeesBtn.title = hasOpenAttendance
+    ? "Sign out all currently signed-in employees first."
+    : "Replace the current Azure employee list with the imported workbook employees."
 }
 
 function editEmployee(employeeId) {
