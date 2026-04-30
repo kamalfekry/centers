@@ -83,6 +83,10 @@ function readBearerToken(request) {
   return match ? match[1] : ""
 }
 
+function readCustomHeaderToken(request) {
+  return String(request.headers.get("x-admin-token") || "").trim()
+}
+
 function readCookieToken(request) {
   const cookieHeader = request.headers.get("cookie") || ""
   const cookiePairs = cookieHeader.split(";")
@@ -130,7 +134,7 @@ function clearAdminSessionCookie(request) {
 }
 
 function requireAdmin(request) {
-  const token = readBearerToken(request) || readCookieToken(request)
+  const token = readCustomHeaderToken(request) || readBearerToken(request) || readCookieToken(request)
   if (!verifyAdminToken(token)) {
     return errorResponse(401, "Admin authentication is required.")
   }

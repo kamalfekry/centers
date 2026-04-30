@@ -24,7 +24,7 @@
     }
 
     if (auth && adminSessionToken) {
-      requestHeaders.Authorization = `Bearer ${adminSessionToken}`
+      requestHeaders["x-admin-token"] = adminSessionToken
     }
 
     const response = await fetch(buildUrl(path), {
