@@ -7,7 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="styles.css" rel="stylesheet">
 </head>
-<body>
+<body class="admin-body">
     <div id="adminAuthGate" class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center bg-dark bg-opacity-75" style="z-index: 1080;">
         <div class="card shadow-lg" style="width: min(92vw, 420px);">
             <div class="card-body p-4">
@@ -157,7 +157,7 @@
             </article>
         </section>
 
-        <section class="records-card mt-4">
+        <section class="records-card mt-4 compact-card employee-summary-card">
             <div class="section-header">
                 <div>
                     <p class="eyebrow mb-1">Monthly Report</p>
@@ -188,7 +188,7 @@
         </section>
 
         <section class="employee-detail-grid mt-4">
-            <article class="records-card">
+            <article class="records-card compact-card manage-employees-card">
                 <div class="section-header">
                     <div>
                         <p class="eyebrow mb-1">Employee Drill-down</p>
@@ -235,7 +235,7 @@
                 </div>
             </article>
 
-            <article class="records-card">
+            <article class="records-card compact-card audit-log-card">
                 <div class="section-header">
                     <div>
                         <p class="eyebrow mb-1">Workday Rules</p>
