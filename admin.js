@@ -45,6 +45,12 @@ const detailDaysPresent = document.getElementById("detailDaysPresent")
 const detailTotalHours = document.getElementById("detailTotalHours")
 const detailLateMinutes = document.getElementById("detailLateMinutes")
 const detailMissingSignOuts = document.getElementById("detailMissingSignOuts")
+const detailMonthlySalary = document.getElementById("detailMonthlySalary")
+const detailNetSalary = document.getElementById("detailNetSalary")
+const detailApprovedLeaveDays = document.getElementById("detailApprovedLeaveDays")
+const detailEmployeeNotes = document.getElementById("detailEmployeeNotes")
+const detailLatestSignInPhoto = document.getElementById("detailLatestSignInPhoto")
+const detailLatestSignOutPhoto = document.getElementById("detailLatestSignOutPhoto")
 const employeeDetailBody = document.getElementById("employeeDetailBody")
 const employeeDetailEmpty = document.getElementById("employeeDetailEmpty")
 
@@ -53,12 +59,35 @@ const workdayStartTimeInput = document.getElementById("workdayStartTime")
 const workdayEndTimeInput = document.getElementById("workdayEndTime")
 const lateGraceMinutesInput = document.getElementById("lateGraceMinutes")
 const monthlyWorkingDaysInput = document.getElementById("monthlyWorkingDays")
+const payrollLockMonthInput = document.getElementById("payrollLockMonth")
+const lockPayrollMonthBtn = document.getElementById("lockPayrollMonthBtn")
+const unlockPayrollMonthBtn = document.getElementById("unlockPayrollMonthBtn")
+
+const leaveForm = document.getElementById("leaveForm")
+const leaveIdInput = document.getElementById("leaveIdInput")
+const leaveEmployeeInput = document.getElementById("leaveEmployeeInput")
+const leaveDateInput = document.getElementById("leaveDateInput")
+const leaveTypeInput = document.getElementById("leaveTypeInput")
+const leaveNotesInput = document.getElementById("leaveNotesInput")
+const leaveRecordsBody = document.getElementById("leaveRecordsBody")
+
+const payrollAdjustmentForm = document.getElementById("payrollAdjustmentForm")
+const payrollAdjustmentIdInput = document.getElementById("payrollAdjustmentIdInput")
+const payrollEmployeeInput = document.getElementById("payrollEmployeeInput")
+const payrollMonthInput = document.getElementById("payrollMonthInput")
+const payrollBonusInput = document.getElementById("payrollBonusInput")
+const payrollPenaltyInput = document.getElementById("payrollPenaltyInput")
+const payrollAdvanceInput = document.getElementById("payrollAdvanceInput")
+const payrollNotesInput = document.getElementById("payrollNotesInput")
+const payrollAdjustmentsBody = document.getElementById("payrollAdjustmentsBody")
+const resetPayrollAdjustmentBtn = document.getElementById("resetPayrollAdjustmentBtn")
 
 const employeeForm = document.getElementById("employeeForm")
 const employeeIdInput = document.getElementById("employeeIdInput")
 const employeeNameInput = document.getElementById("employeeNameInput")
 const employeeUsernameInput = document.getElementById("employeeUsernameInput")
 const employeeSalaryInput = document.getElementById("employeeSalaryInput")
+const employeeNotesInput = document.getElementById("employeeNotesInput")
 const employeeActiveInput = document.getElementById("employeeActiveInput")
 const resetEmployeeFormBtn = document.getElementById("resetEmployeeFormBtn")
 const syncImportedEmployeesBtn = document.getElementById("syncImportedEmployeesBtn")
@@ -70,6 +99,14 @@ const emptyState = document.getElementById("emptyState")
 const deleteSelectedRecordsBtn = document.getElementById("deleteSelectedRecordsBtn")
 const deleteOldRecordsBtn = document.getElementById("deleteOldRecordsBtn")
 const selectAllRecordsCheckbox = document.getElementById("selectAllRecordsCheckbox")
+const fixSignOutModal = document.getElementById("fixSignOutModal")
+const fixSignOutForm = document.getElementById("fixSignOutForm")
+const fixSignOutPrompt = document.getElementById("fixSignOutPrompt")
+const fixSignOutRecordId = document.getElementById("fixSignOutRecordId")
+const fixSignOutDateInput = document.getElementById("fixSignOutDateInput")
+const fixSignOutTimeInput = document.getElementById("fixSignOutTimeInput")
+const fixSignOutError = document.getElementById("fixSignOutError")
+const fixSignOutCancelBtn = document.getElementById("fixSignOutCancelBtn")
 
 let allRecords = []
 let employeeProfiles = []
@@ -80,6 +117,9 @@ let workSettings = centersData.defaultWorkSettings || {
   monthlyWorkingDays: 26
 }
 let auditLogEntries = []
+let leaveRecords = []
+let payrollAdjustments = []
+let payrollLocks = []
 let selectedRecordIds = new Set()
 let isSyncingImportedEmployees = false
 let deletePasswordRequest = null
@@ -89,7 +129,8 @@ let currentView = {
   filteredRecords: [],
   summaries: [],
   detailSummary: null,
-  todayOverview: null
+  todayOverview: null,
+  selectedMonthLock: null
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -111,6 +152,11 @@ settingsForm.addEventListener("submit", handleSettingsSave)
 employeeForm.addEventListener("submit", handleEmployeeSave)
 resetEmployeeFormBtn.addEventListener("click", resetEmployeeForm)
 syncImportedEmployeesBtn.addEventListener("click", handleSyncImportedEmployees)
+leaveForm.addEventListener("submit", handleLeaveSave)
+payrollAdjustmentForm.addEventListener("submit", handlePayrollAdjustmentSave)
+resetPayrollAdjustmentBtn.addEventListener("click", resetPayrollAdjustmentForm)
+lockPayrollMonthBtn.addEventListener("click", () => handlePayrollLockChange(true))
+unlockPayrollMonthBtn.addEventListener("click", () => handlePayrollLockChange(false))
 deleteSelectedRecordsBtn.addEventListener("click", handleDeleteSelectedRecords)
 deleteOldRecordsBtn.addEventListener("click", handleDeleteOldRecords)
 selectAllRecordsCheckbox.addEventListener("change", handleSelectAllRecords)
@@ -118,6 +164,8 @@ deletePasswordForm.addEventListener("submit", handleDeletePasswordSubmit)
 deletePasswordCancelBtn.addEventListener("click", () => {
   resolveDeletePasswordRequest(null)
 })
+fixSignOutForm.addEventListener("submit", handleFixSignOutSubmit)
+fixSignOutCancelBtn.addEventListener("click", hideFixSignOutModal)
 
 async function initializeAdminPage() {
   try {
@@ -188,6 +236,9 @@ async function loadAdminState() {
       : []
     workSettings = payload.settings || workSettings
     auditLogEntries = Array.isArray(payload.auditLog) ? payload.auditLog : []
+    leaveRecords = Array.isArray(payload.leaveRecords) ? payload.leaveRecords : []
+    payrollAdjustments = Array.isArray(payload.payrollAdjustments) ? payload.payrollAdjustments : []
+    payrollLocks = Array.isArray(payload.payrollLocks) ? payload.payrollLocks : []
     loadWorkSettingsIntoForm()
     deriveAndRender()
     setStatus(`Loaded ${allRecords.length} attendance records from Azure.`)
@@ -210,6 +261,8 @@ async function loadAdminState() {
 function deriveAndRender() {
   populateEmployeeFilterOptions()
   populateMonthFilterOptions()
+  populateLeaveEmployeeOptions()
+  populatePayrollEmployeeOptions()
 
   const enrichedRecords = allRecords.map((record) => enrichRecord(record)).filter(Boolean)
   const selectedMonthKey = getSelectedMonthKey()
@@ -218,6 +271,7 @@ function deriveAndRender() {
   const summaries = buildMonthlySummaries(monthRecords)
   const detailSummary = buildEmployeeDetail(monthRecords, summaries)
   const todayOverview = buildTodayOverview(enrichedRecords)
+  const selectedMonthLock = payrollLocks.find((item) => item.monthKey === selectedMonthKey) || null
   const visibleRecordIds = new Set(enrichedRecords.map((record) => record.recordId).filter(Boolean))
   selectedRecordIds = new Set(Array.from(selectedRecordIds).filter((recordId) => visibleRecordIds.has(recordId)))
 
@@ -227,7 +281,8 @@ function deriveAndRender() {
     filteredRecords,
     summaries,
     detailSummary,
-    todayOverview
+    todayOverview,
+    selectedMonthLock
   }
 
   renderSummaryCards(selectedMonthKey, monthRecords, todayOverview)
@@ -236,7 +291,10 @@ function deriveAndRender() {
   renderEmployeeDetail(detailSummary)
   renderRecords(filteredRecords)
   renderEmployeeDirectory()
+  renderLeaveRecords()
+  renderPayrollAdjustments()
   renderAuditLog()
+  syncPayrollLockControls(selectedMonthLock)
   syncImportedEmployeesButtonState(todayOverview)
 }
 
@@ -245,6 +303,8 @@ function loadWorkSettingsIntoForm() {
   workdayEndTimeInput.value = workSettings.workdayEndTime || "17:00"
   lateGraceMinutesInput.value = String(workSettings.lateGraceMinutes ?? 15)
   monthlyWorkingDaysInput.value = String(workSettings.monthlyWorkingDays ?? 26)
+  payrollLockMonthInput.value = getSelectedMonthKey?.() || buildMonthKey(new Date())
+  payrollMonthInput.value = getSelectedMonthKey?.() || buildMonthKey(new Date())
 }
 
 async function handleSettingsSave(event) {
@@ -274,6 +334,7 @@ async function handleEmployeeSave(event) {
   const fullName = employeeNameInput.value.trim()
   const username = employeeUsernameInput.value.trim()
   const monthlySalary = Number(employeeSalaryInput.value || 0)
+  const notes = employeeNotesInput.value.trim()
   if (!fullName || !username) {
     setStatus("Full name and username are required.")
     return
@@ -285,6 +346,7 @@ async function handleEmployeeSave(event) {
       fullName,
       username,
       monthlySalary,
+      notes,
       active: employeeActiveInput.checked
     })
     resetEmployeeForm()
@@ -293,6 +355,85 @@ async function handleEmployeeSave(event) {
   } catch (error) {
     console.error("Unable to save employee:", error)
     setStatus(error.message || "Unable to save employee.")
+  }
+}
+
+async function handleLeaveSave(event) {
+  event.preventDefault()
+
+  const employeeId = leaveEmployeeInput.value
+  const profile = employeeProfiles.find((item) => item.id === employeeId)
+  if (!profile || !leaveDateInput.value) {
+    setStatus("Employee and leave date are required.")
+    return
+  }
+
+  try {
+    await centersData.saveLeaveRecord({
+      id: leaveIdInput.value.trim() || undefined,
+      employeeId,
+      employeeName: profile.fullName,
+      date: leaveDateInput.value,
+      type: leaveTypeInput.value,
+      notes: leaveNotesInput.value.trim()
+    })
+    resetLeaveForm()
+    setStatus("Leave record saved successfully.")
+    await loadAdminState()
+  } catch (error) {
+    console.error("Unable to save leave record:", error)
+    setStatus(error.message || "Unable to save leave record.")
+  }
+}
+
+async function handlePayrollAdjustmentSave(event) {
+  event.preventDefault()
+
+  const employeeId = payrollEmployeeInput.value
+  const profile = employeeProfiles.find((item) => item.id === employeeId)
+  if (!profile || !payrollMonthInput.value) {
+    setStatus("Employee and payroll month are required.")
+    return
+  }
+
+  try {
+    await centersData.savePayrollAdjustment({
+      id: payrollAdjustmentIdInput.value.trim() || `${employeeId}_${payrollMonthInput.value}`,
+      employeeId,
+      employeeName: profile.fullName,
+      monthKey: payrollMonthInput.value,
+      bonus: Number(payrollBonusInput.value || 0),
+      penalty: Number(payrollPenaltyInput.value || 0),
+      advance: Number(payrollAdvanceInput.value || 0),
+      notes: payrollNotesInput.value.trim()
+    })
+    resetPayrollAdjustmentForm()
+    setStatus("Payroll adjustment saved successfully.")
+    await loadAdminState()
+  } catch (error) {
+    console.error("Unable to save payroll adjustment:", error)
+    setStatus(error.message || "Unable to save payroll adjustment.")
+  }
+}
+
+async function handlePayrollLockChange(locked) {
+  const monthKey = payrollLockMonthInput.value || getSelectedMonthKey()
+  const password = await requestDeletePassword(
+    `Enter the admin password to ${locked ? "lock" : "unlock"} payroll for ${formatMonthLabel(monthKey)}.`,
+    locked ? "Lock Month" : "Unlock Month"
+  )
+
+  if (password === null) {
+    return
+  }
+
+  try {
+    await centersData.setPayrollLock(monthKey, password, locked)
+    setStatus(`${locked ? "Locked" : "Unlocked"} payroll for ${formatMonthLabel(monthKey)}.`)
+    await loadAdminState()
+  } catch (error) {
+    console.error("Unable to update payroll lock:", error)
+    setStatus(error.message || "Unable to update payroll lock.")
   }
 }
 
@@ -482,7 +623,22 @@ function resetEmployeeForm() {
   employeeForm.reset()
   employeeIdInput.value = ""
   employeeSalaryInput.value = "0"
+  employeeNotesInput.value = ""
   employeeActiveInput.checked = true
+}
+
+function resetLeaveForm() {
+  leaveForm.reset()
+  leaveIdInput.value = ""
+}
+
+function resetPayrollAdjustmentForm() {
+  payrollAdjustmentForm.reset()
+  payrollAdjustmentIdInput.value = ""
+  payrollBonusInput.value = "0"
+  payrollPenaltyInput.value = "0"
+  payrollAdvanceInput.value = "0"
+  payrollMonthInput.value = getSelectedMonthKey()
 }
 
 function renderEmployeeDirectory() {
@@ -497,6 +653,7 @@ function renderEmployeeDirectory() {
           <td class="fw-semibold">${escapeHtml(profile.fullName)}</td>
           <td>${escapeHtml(profile.username)}</td>
           <td>${escapeHtml(formatCurrency(profile.monthlySalary || 0))}</td>
+          <td>${escapeHtml(profile.notes || "-")}</td>
           <td>${renderStatusBadge(profile.active ? "Active" : "Inactive", profile.active ? "success" : "secondary")}</td>
           <td>
             <div class="d-flex gap-2 flex-wrap">
@@ -552,6 +709,7 @@ function editEmployee(employeeId) {
   employeeNameInput.value = profile.fullName
   employeeUsernameInput.value = profile.username
   employeeSalaryInput.value = String(profile.monthlySalary || 0)
+  employeeNotesInput.value = String(profile.notes || "")
   employeeActiveInput.checked = profile.active !== false
   employeeNameInput.focus()
 }
@@ -621,8 +779,71 @@ function populateMonthFilterOptions() {
   monthFilter.value = sortedKeys.includes(previousValue) ? previousValue : currentMonthKey
 }
 
+function populateLeaveEmployeeOptions() {
+  const previousValue = leaveEmployeeInput.value
+  leaveEmployeeInput.innerHTML = employeeProfiles
+    .filter((profile) => profile.active !== false)
+    .map((profile) => `<option value="${escapeHtml(profile.id)}">${escapeHtml(profile.fullName)}</option>`)
+    .join("")
+
+  if (previousValue && employeeProfiles.some((profile) => profile.id === previousValue)) {
+    leaveEmployeeInput.value = previousValue
+  }
+}
+
+function populatePayrollEmployeeOptions() {
+  const previousValue = payrollEmployeeInput.value
+  payrollEmployeeInput.innerHTML = employeeProfiles
+    .filter((profile) => profile.active !== false)
+    .map((profile) => `<option value="${escapeHtml(profile.id)}">${escapeHtml(profile.fullName)}</option>`)
+    .join("")
+
+  if (previousValue && employeeProfiles.some((profile) => profile.id === previousValue)) {
+    payrollEmployeeInput.value = previousValue
+  }
+}
+
 function getSelectedMonthKey() {
   return monthFilter.value || buildMonthKey(new Date())
+}
+
+function isMonthLockedForKey(monthKey) {
+  return payrollLocks.some((item) => item.monthKey === monthKey && item.locked)
+}
+
+function isSelectedMonthLocked() {
+  return isMonthLockedForKey(getSelectedMonthKey())
+}
+
+function isRecordMonthLocked(record) {
+  if (!record?.recordDate) {
+    return false
+  }
+
+  return isMonthLockedForKey(buildMonthKey(record.recordDate))
+}
+
+function toggleFormControls(form, disabled) {
+  if (!form) {
+    return
+  }
+
+  form.querySelectorAll("input, select, textarea, button").forEach((element) => {
+    if (element.type === "hidden") {
+      return
+    }
+    element.disabled = disabled
+  })
+}
+
+function getApprovedLeaveRecordsForMonth(employeeId, monthKey) {
+  return leaveRecords.filter((item) => {
+    return item.employeeId === employeeId && item.monthKey === monthKey && item.type !== "Unpaid Leave"
+  })
+}
+
+function getPayrollAdjustmentForMonth(employeeId, monthKey) {
+  return payrollAdjustments.find((item) => item.employeeId === employeeId && item.monthKey === monthKey) || null
 }
 
 function normalizeAttendanceRow(record) {
@@ -714,6 +935,7 @@ function buildMonthlySummaries(records) {
   const summaryMap = new Map()
   const scheduledDailyMinutes = getScheduledWorkMinutesPerDay()
   const monthlyWorkingDays = Math.max(1, Number(workSettings.monthlyWorkingDays || 26))
+  const selectedMonthKey = getSelectedMonthKey()
 
   employeeProfiles
     .filter((profile) => profile.active !== false)
@@ -723,6 +945,7 @@ function buildMonthlySummaries(records) {
         employeeName: profile.fullName,
         username: profile.username,
         monthlySalary: Number(profile.monthlySalary || 0),
+        employeeNotes: String(profile.notes || ""),
         daysPresentSet: new Set(),
         totalMinutes: 0,
         lateDays: 0,
@@ -740,6 +963,7 @@ function buildMonthlySummaries(records) {
       employeeName: record.employeeName,
       username: "",
       monthlySalary: 0,
+      employeeNotes: "",
       daysPresentSet: new Set(),
       totalMinutes: 0,
       lateDays: 0,
@@ -772,7 +996,10 @@ function buildMonthlySummaries(records) {
   return Array.from(summaryMap.values())
     .map((summary) => {
       const daysPresent = summary.daysPresentSet.size
-      const absentDays = Math.max(0, monthlyWorkingDays - daysPresent)
+      const approvedLeaveRecords = getApprovedLeaveRecordsForMonth(summary.employeeId, selectedMonthKey)
+      const approvedLeaveDays = approvedLeaveRecords.length
+      const absentDays = Math.max(0, monthlyWorkingDays - daysPresent - approvedLeaveDays)
+      const payrollAdjustment = getPayrollAdjustmentForMonth(summary.employeeId, selectedMonthKey)
       const salaryPerDay = monthlyWorkingDays > 0 ? summary.monthlySalary / monthlyWorkingDays : 0
       const salaryPerMinute = scheduledDailyMinutes > 0 ? salaryPerDay / scheduledDailyMinutes : 0
       const absenceDeduction = absentDays * salaryPerDay
@@ -780,11 +1007,16 @@ function buildMonthlySummaries(records) {
       const earlyLeaveDeduction = summary.earlyLeaveMinutes * salaryPerMinute
       const overtimePay = summary.overtimeMinutes * salaryPerMinute
       const totalDeductions = absenceDeduction + lateDeduction + earlyLeaveDeduction
-      const netSalary = Math.max(0, summary.monthlySalary - totalDeductions + overtimePay)
+      const bonus = Number(payrollAdjustment?.bonus || 0)
+      const penalty = Number(payrollAdjustment?.penalty || 0)
+      const advance = Number(payrollAdjustment?.advance || 0)
+      const manualDeductions = penalty + advance
+      const netSalary = Math.max(0, summary.monthlySalary - totalDeductions - manualDeductions + overtimePay + bonus)
       return {
         ...summary,
         daysPresent,
         absentDays,
+        approvedLeaveDays,
         averageMinutesPerDay: daysPresent ? Math.round(summary.totalMinutes / daysPresent) : 0,
         salaryPerDay,
         salaryPerMinute,
@@ -793,6 +1025,12 @@ function buildMonthlySummaries(records) {
         earlyLeaveDeduction,
         overtimePay,
         totalDeductions,
+        bonus,
+        penalty,
+        advance,
+        manualDeductions,
+        payrollNotes: payrollAdjustment?.notes || "",
+        approvedLeaveRecords,
         netSalary
       }
     })
@@ -816,10 +1054,24 @@ function buildEmployeeDetail(records, summaries) {
           totalMinutes: 0,
           lateMinutes: 0,
           missingSignOuts: 0,
+          monthlySalary: Number(selectedProfile.monthlySalary || 0),
+          netSalary: Number(selectedProfile.monthlySalary || 0),
+          approvedLeaveDays: 0,
+          employeeNotes: selectedProfile.notes || "",
+          approvedLeaveRecords: [],
+          latestSignInPhoto: "",
+          latestSignOutPhoto: "",
+          payrollNotes: "",
           records: []
         }
       : null
   }
+
+  const employeeRecords = records
+    .filter((record) => record.employeeId === selectedEmployeeId)
+    .sort((first, second) => second.recordDate.getTime() - first.recordDate.getTime())
+  const latestRecordWithSignInPhoto = employeeRecords.find((record) => record.signInPhoto)
+  const latestRecordWithSignOutPhoto = employeeRecords.find((record) => record.signOutPhoto)
 
   return {
     employeeId: employeeSummary.employeeId,
@@ -828,9 +1080,15 @@ function buildEmployeeDetail(records, summaries) {
     totalMinutes: employeeSummary.totalMinutes,
     lateMinutes: employeeSummary.lateMinutes,
     missingSignOuts: employeeSummary.missingSignOuts,
-    records: records
-      .filter((record) => record.employeeId === selectedEmployeeId)
-      .sort((first, second) => second.recordDate.getTime() - first.recordDate.getTime())
+    monthlySalary: employeeSummary.monthlySalary,
+    netSalary: employeeSummary.netSalary,
+    approvedLeaveDays: employeeSummary.approvedLeaveDays,
+    employeeNotes: employeeSummary.employeeNotes || selectedProfile?.notes || "",
+    approvedLeaveRecords: employeeSummary.approvedLeaveRecords || [],
+    payrollNotes: employeeSummary.payrollNotes || "",
+    latestSignInPhoto: latestRecordWithSignInPhoto?.signInPhoto || "",
+    latestSignOutPhoto: latestRecordWithSignOutPhoto?.signOutPhoto || "",
+    records: employeeRecords
   }
 }
 
@@ -898,6 +1156,7 @@ function renderSummaryCards(selectedMonthKey, monthRecords, todayOverview) {
 }
 
 function renderTodayOverview(todayOverview) {
+  const selectedMonthLocked = isSelectedMonthLocked()
   todayChips.innerHTML = [
     renderChip(`Present today: ${todayOverview.presentTodayCount}`),
     renderChip(`Late today: ${todayOverview.lateToday.length}`),
@@ -905,26 +1164,35 @@ function renderTodayOverview(todayOverview) {
     renderChip(`Absent today: ${todayOverview.absentToday.length}`)
   ].join("")
 
-  currentSignedInList.innerHTML = renderInsightItems(
-    todayOverview.currentSignedIn.map((record) => ({
-      title: record.employeeName,
-      subtitle: `Signed in at ${record.signInTime || "-"}`
-    })),
-    "No employee is currently signed in."
-  )
+    currentSignedInList.innerHTML = todayOverview.currentSignedIn.length
+      ? todayOverview.currentSignedIn.map((record) => `
+          <div class="insight-item">
+            <strong>${escapeHtml(record.employeeName)}</strong>
+            <span>Signed in at ${escapeHtml(record.signInTime || "-")}</span>
+            <button type="button" class="btn btn-sm btn-outline-success mt-2 fix-signout-btn" data-record-id="${escapeHtml(record.recordId)}" ${selectedMonthLocked || isRecordMonthLocked(record) ? "disabled" : ""}>Close Sign-out</button>
+          </div>
+        `).join("")
+      : `<div class="empty-state">No employee is currently signed in.</div>`
 
-  const attentionItems = [
-    ...todayOverview.lateToday.map((record) => ({
-      title: `${record.employeeName} is late`,
-      subtitle: `${formatMinutesAsDuration(record.lateMinutes)} late today`
-    })),
-    ...todayOverview.missingSignOuts.map((record) => ({
-      title: `${record.employeeName} still needs sign-out`,
-      subtitle: `Signed in on ${record.signInDate} at ${record.signInTime}`
-    }))
-  ]
+  const attentionHtml = [
+    ...todayOverview.lateToday.map((record) => `
+      <div class="insight-item">
+        <strong>${escapeHtml(record.employeeName)} is late</strong>
+        <span>${escapeHtml(formatMinutesAsDuration(record.lateMinutes))} late today</span>
+      </div>
+    `),
+      ...todayOverview.missingSignOuts.map((record) => `
+        <div class="insight-item">
+          <strong>${escapeHtml(record.employeeName)} still needs sign-out</strong>
+          <span>Signed in on ${escapeHtml(record.signInDate)} at ${escapeHtml(record.signInTime)}</span>
+          <button type="button" class="btn btn-sm btn-outline-success mt-2 fix-signout-btn" data-record-id="${escapeHtml(record.recordId)}" ${selectedMonthLocked || isRecordMonthLocked(record) ? "disabled" : ""}>Close Sign-out</button>
+        </div>
+      `)
+    ]
 
-  attentionList.innerHTML = renderInsightItems(attentionItems, "No late arrivals or missing sign-outs right now.")
+  attentionList.innerHTML = attentionHtml.length
+    ? attentionHtml.join("")
+    : `<div class="empty-state">No late arrivals or missing sign-outs right now.</div>`
   absentTodayList.innerHTML = renderInsightItems(
     todayOverview.absentToday.map((profile) => ({
       title: profile.fullName,
@@ -932,6 +1200,9 @@ function renderTodayOverview(todayOverview) {
     })),
     "No one is absent today."
   )
+
+  attachFixSignOutButtons(currentSignedInList)
+  attachFixSignOutButtons(attentionList)
 }
 
 function renderMonthlySummary(summaries) {
@@ -984,6 +1255,12 @@ function renderEmployeeDetail(detailSummary) {
     detailTotalHours.textContent = "0h 0m"
     detailLateMinutes.textContent = "0m"
     detailMissingSignOuts.textContent = "0"
+    detailMonthlySalary.textContent = "0.00 EGP"
+    detailNetSalary.textContent = "0.00 EGP"
+    detailApprovedLeaveDays.textContent = "0"
+    detailEmployeeNotes.textContent = "No employee selected."
+    detailLatestSignInPhoto.innerHTML = '<div class="photo-placeholder">No Photo</div>'
+    detailLatestSignOutPhoto.innerHTML = '<div class="photo-placeholder">No Photo</div>'
     employeeDetailBody.innerHTML = ""
     employeeDetailEmpty.classList.remove("d-none")
     return
@@ -994,24 +1271,40 @@ function renderEmployeeDetail(detailSummary) {
   detailTotalHours.textContent = formatMinutesAsDuration(detailSummary.totalMinutes)
   detailLateMinutes.textContent = formatMinutesAsDuration(detailSummary.lateMinutes)
   detailMissingSignOuts.textContent = String(detailSummary.missingSignOuts)
+  detailMonthlySalary.textContent = formatCurrency(detailSummary.monthlySalary || 0)
+  detailNetSalary.textContent = formatCurrency(detailSummary.netSalary || 0)
+  detailApprovedLeaveDays.textContent = String(detailSummary.approvedLeaveDays || 0)
+  detailEmployeeNotes.textContent = detailSummary.employeeNotes || detailSummary.payrollNotes || "No notes for this employee."
+  detailLatestSignInPhoto.innerHTML = detailSummary.latestSignInPhoto
+    ? `<img src="${escapeHtml(detailSummary.latestSignInPhoto)}" alt="${escapeHtml(detailSummary.employeeName)} sign-in" class="admin-photo">`
+    : '<div class="photo-placeholder">No Photo</div>'
+  detailLatestSignOutPhoto.innerHTML = detailSummary.latestSignOutPhoto
+    ? `<img src="${escapeHtml(detailSummary.latestSignOutPhoto)}" alt="${escapeHtml(detailSummary.employeeName)} sign-out" class="admin-photo">`
+    : '<div class="photo-placeholder">No Photo</div>'
   employeeDetailEmpty.classList.toggle("d-none", detailSummary.records.length > 0)
 
-  employeeDetailBody.innerHTML = detailSummary.records
-    .map((record) => {
-      return `
-        <tr>
-          <td>${escapeHtml(record.signInDate !== "-" ? record.signInDate : record.signOutDate)}</td>
-          <td>${escapeHtml(record.signInTime)}</td>
-          <td>${escapeHtml(record.signOutTime)}</td>
+    employeeDetailBody.innerHTML = detailSummary.records
+      .map((record) => {
+        const signOutButtonDisabled = isRecordMonthLocked(record)
+        return `
+          <tr>
+            <td>${escapeHtml(record.signInDate !== "-" ? record.signInDate : record.signOutDate)}</td>
+            <td>${escapeHtml(record.signInTime)}</td>
+            <td>${escapeHtml(record.signOutTime)}</td>
           <td>${escapeHtml(formatMinutesAsDuration(record.durationMinutes))}</td>
           <td>${escapeHtml(formatMinutesAsDuration(record.lateMinutes))}</td>
           <td>${escapeHtml(formatMinutesAsDuration(record.earlyLeaveMinutes))}</td>
           <td>${escapeHtml(formatMinutesAsDuration(record.overtimeMinutes))}</td>
-          <td>${renderStatusList(record.statusItems)}</td>
-        </tr>
-      `
+            <td>
+              ${renderStatusList(record.statusItems)}
+              ${record.isOpen ? `<div class="mt-2"><button type="button" class="btn btn-sm btn-outline-success fix-signout-btn" data-record-id="${escapeHtml(record.recordId)}" ${signOutButtonDisabled ? "disabled" : ""}>Close Sign-out</button></div>` : ""}
+            </td>
+          </tr>
+        `
     })
     .join("")
+
+  attachFixSignOutButtons(employeeDetailBody)
 }
 
 function renderRecords(records) {
@@ -1023,20 +1316,22 @@ function renderRecords(records) {
   }
 
   emptyState.classList.add("d-none")
-  recordsTableBody.innerHTML = records
-    .map((record) => {
-      const isSelected = record.recordId && selectedRecordIds.has(record.recordId)
-      return `
-        <tr>
-          <td>
-            <input
-              type="checkbox"
-              class="form-check-input record-select-checkbox"
-              data-record-id="${escapeHtml(record.recordId)}"
-              ${isSelected ? "checked" : ""}
-              aria-label="Select attendance record for ${escapeHtml(record.employeeName)}"
-            >
-          </td>
+    recordsTableBody.innerHTML = records
+      .map((record) => {
+        const isSelected = record.recordId && selectedRecordIds.has(record.recordId)
+        const isLocked = isRecordMonthLocked(record)
+        return `
+          <tr>
+            <td>
+              <input
+                type="checkbox"
+                class="form-check-input record-select-checkbox"
+                data-record-id="${escapeHtml(record.recordId)}"
+                ${isSelected ? "checked" : ""}
+                ${isLocked ? "disabled" : ""}
+                aria-label="Select attendance record for ${escapeHtml(record.employeeName)}"
+              >
+            </td>
           <td class="fw-semibold">${escapeHtml(record.employeeName)}</td>
           <td>${escapeHtml(record.signInDate)}</td>
           <td>${escapeHtml(record.signInTime)}</td>
@@ -1045,9 +1340,12 @@ function renderRecords(records) {
           <td>${escapeHtml(record.signOutTime)}</td>
           <td>${renderPhotoCell(record.signOutPhoto, record.employeeName, "sign-out")}</td>
           <td>${escapeHtml(formatMinutesAsDuration(record.durationMinutes))}</td>
-          <td class="timestamp-cell">${escapeHtml(record.timestamp || "-")}</td>
-        </tr>
-      `
+            <td class="timestamp-cell">
+              ${escapeHtml(record.timestamp || "-")}
+              ${record.isOpen ? `<div class="mt-2"><button type="button" class="btn btn-sm btn-outline-success fix-signout-btn" data-record-id="${escapeHtml(record.recordId)}" ${isLocked ? "disabled" : ""}>Close Sign-out</button></div>` : ""}
+            </td>
+          </tr>
+        `
     })
     .join("")
 
@@ -1069,6 +1367,7 @@ function renderRecords(records) {
   })
 
   syncSelectAllCheckbox(records)
+  attachFixSignOutButtons(recordsTableBody)
 }
 
 function renderAuditLog() {
@@ -1086,6 +1385,214 @@ function renderAuditLog() {
         })
         .join("")
     : '<div class="empty-state">No admin changes have been logged yet.</div>'
+}
+
+function editLeaveRecord(leaveId) {
+  const leave = leaveRecords.find((item) => item.id === leaveId)
+  if (!leave) {
+    return
+  }
+
+  leaveIdInput.value = leave.id
+  leaveEmployeeInput.value = leave.employeeId
+  leaveDateInput.value = leave.date
+  leaveTypeInput.value = leave.type
+  leaveNotesInput.value = leave.notes || ""
+  leaveEmployeeInput.focus()
+}
+
+async function deleteLeaveEntry(leaveId) {
+  const leave = leaveRecords.find((item) => item.id === leaveId)
+  if (!leave || !window.confirm(`Delete ${leave.type} for ${leave.employeeName} on ${leave.date}?`)) {
+    return
+  }
+
+  try {
+    await centersData.deleteLeaveRecord(leaveId)
+    setStatus("Leave record deleted successfully.")
+    await loadAdminState()
+  } catch (error) {
+    console.error("Unable to delete leave record:", error)
+    setStatus(error.message || "Unable to delete leave record.")
+  }
+}
+
+function editPayrollAdjustment(adjustmentId) {
+  const adjustment = payrollAdjustments.find((item) => item.id === adjustmentId)
+  if (!adjustment) {
+    return
+  }
+
+  payrollAdjustmentIdInput.value = adjustment.id
+  payrollEmployeeInput.value = adjustment.employeeId
+  payrollMonthInput.value = adjustment.monthKey
+  payrollBonusInput.value = String(adjustment.bonus || 0)
+  payrollPenaltyInput.value = String(adjustment.penalty || 0)
+  payrollAdvanceInput.value = String(adjustment.advance || 0)
+  payrollNotesInput.value = adjustment.notes || ""
+  payrollEmployeeInput.focus()
+}
+
+async function deletePayrollAdjustmentEntry(adjustmentId) {
+  const adjustment = payrollAdjustments.find((item) => item.id === adjustmentId)
+  if (!adjustment || !window.confirm(`Delete payroll adjustment for ${adjustment.employeeName} in ${adjustment.monthKey}?`)) {
+    return
+  }
+
+  try {
+    await centersData.deletePayrollAdjustment(adjustmentId)
+    setStatus("Payroll adjustment deleted successfully.")
+    await loadAdminState()
+  } catch (error) {
+    console.error("Unable to delete payroll adjustment:", error)
+    setStatus(error.message || "Unable to delete payroll adjustment.")
+  }
+}
+
+function attachFixSignOutButtons(container) {
+  container?.querySelectorAll(".fix-signout-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      openFixSignOutModal(button.dataset.recordId)
+    })
+  })
+}
+
+function openFixSignOutModal(recordId) {
+  const record = currentView.enrichedRecords.find((item) => item.recordId === recordId)
+  if (!record) {
+    return
+  }
+
+  fixSignOutRecordId.value = recordId
+  fixSignOutPrompt.textContent = `Close missing sign-out for ${record.employeeName}.`
+  fixSignOutDateInput.value = toInputDate(record.signInAt || new Date())
+  fixSignOutTimeInput.value = toInputTime(new Date())
+  fixSignOutError.classList.add("d-none")
+  fixSignOutModal.classList.remove("d-none")
+  fixSignOutModal.classList.add("d-flex")
+}
+
+function hideFixSignOutModal() {
+  fixSignOutModal.classList.add("d-none")
+  fixSignOutModal.classList.remove("d-flex")
+  fixSignOutError.classList.add("d-none")
+  fixSignOutForm.reset()
+}
+
+async function handleFixSignOutSubmit(event) {
+  event.preventDefault()
+
+  if (!fixSignOutDateInput.value || !fixSignOutTimeInput.value) {
+    fixSignOutError.classList.remove("d-none")
+    return
+  }
+
+  const dateValue = fixSignOutDateInput.value
+  const timeValue = fixSignOutTimeInput.value
+  const signOutTimestamp = new Date(`${dateValue}T${timeValue}:00`).toISOString()
+
+  try {
+    await centersData.fixMissingSignOut({
+      recordId: fixSignOutRecordId.value,
+      signOutDate: formatDateForDisplay(dateValue),
+      signOutTime: formatTimeForDisplay(timeValue),
+      signOutTimestamp
+    })
+    hideFixSignOutModal()
+    setStatus("Missing sign-out closed successfully.")
+    await loadAdminState()
+  } catch (error) {
+    console.error("Unable to fix missing sign-out:", error)
+    fixSignOutError.textContent = error.message || "Unable to close missing sign-out."
+    fixSignOutError.classList.remove("d-none")
+  }
+}
+
+function renderLeaveRecords() {
+  const selectedMonthKey = getSelectedMonthKey()
+  const selectedMonthLocked = isMonthLockedForKey(selectedMonthKey)
+  const filteredLeaves = leaveRecords
+    .filter((item) => !selectedMonthKey || item.monthKey === selectedMonthKey)
+    .sort((first, second) => String(second.date).localeCompare(String(first.date)))
+
+  leaveRecordsBody.innerHTML = filteredLeaves.length
+    ? filteredLeaves.map((leave) => `
+        <tr>
+          <td>${escapeHtml(leave.employeeName)}</td>
+          <td>${escapeHtml(leave.date)}</td>
+          <td>${escapeHtml(leave.type)}</td>
+          <td>${escapeHtml(leave.notes || "-")}</td>
+            <td>
+              <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-outline-primary" data-edit-leave="${escapeHtml(leave.id)}" ${selectedMonthLocked ? "disabled" : ""}>Edit</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-delete-leave="${escapeHtml(leave.id)}" ${selectedMonthLocked ? "disabled" : ""}>Delete</button>
+              </div>
+            </td>
+          </tr>
+      `).join("")
+    : '<tr><td colspan="5" class="empty-state">No leave records for this month.</td></tr>'
+
+  leaveRecordsBody.querySelectorAll("[data-edit-leave]").forEach((button) => {
+    button.addEventListener("click", () => editLeaveRecord(button.dataset.editLeave))
+  })
+  leaveRecordsBody.querySelectorAll("[data-delete-leave]").forEach((button) => {
+    button.addEventListener("click", () => deleteLeaveEntry(button.dataset.deleteLeave))
+  })
+}
+
+function renderPayrollAdjustments() {
+  const selectedMonthKey = getSelectedMonthKey()
+  const selectedMonthLocked = isMonthLockedForKey(selectedMonthKey)
+  const filteredAdjustments = payrollAdjustments
+    .filter((item) => !selectedMonthKey || item.monthKey === selectedMonthKey)
+    .sort((first, second) => first.employeeName.localeCompare(second.employeeName, "ar"))
+
+  payrollAdjustmentsBody.innerHTML = filteredAdjustments.length
+    ? filteredAdjustments.map((adjustment) => `
+        <tr>
+          <td>${escapeHtml(adjustment.employeeName)}</td>
+          <td>${escapeHtml(adjustment.monthKey)}</td>
+          <td>${escapeHtml(formatCurrency(adjustment.bonus || 0))}</td>
+          <td>${escapeHtml(formatCurrency(adjustment.penalty || 0))}</td>
+          <td>${escapeHtml(formatCurrency(adjustment.advance || 0))}</td>
+          <td>${escapeHtml(adjustment.notes || "-")}</td>
+            <td>
+              <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-outline-primary" data-edit-adjustment="${escapeHtml(adjustment.id)}" ${selectedMonthLocked ? "disabled" : ""}>Edit</button>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-delete-adjustment="${escapeHtml(adjustment.id)}" ${selectedMonthLocked ? "disabled" : ""}>Delete</button>
+              </div>
+            </td>
+          </tr>
+      `).join("")
+    : '<tr><td colspan="7" class="empty-state">No manual payroll adjustments for this month.</td></tr>'
+
+  payrollAdjustmentsBody.querySelectorAll("[data-edit-adjustment]").forEach((button) => {
+    button.addEventListener("click", () => editPayrollAdjustment(button.dataset.editAdjustment))
+  })
+  payrollAdjustmentsBody.querySelectorAll("[data-delete-adjustment]").forEach((button) => {
+    button.addEventListener("click", () => deletePayrollAdjustmentEntry(button.dataset.deleteAdjustment))
+  })
+}
+
+function syncPayrollLockControls(selectedMonthLock) {
+  const monthKey = getSelectedMonthKey()
+  payrollLockMonthInput.value = monthKey
+  const isLocked = Boolean(selectedMonthLock?.locked)
+  toggleFormControls(leaveForm, isLocked)
+  toggleFormControls(payrollAdjustmentForm, isLocked)
+  deleteSelectedRecordsBtn.disabled = isLocked
+  if (!isLocked) {
+    const hasAnyLockedOlderMonth = payrollLocks.some((item) => item.locked && item.monthKey < monthKey)
+    deleteOldRecordsBtn.disabled = hasAnyLockedOlderMonth
+  } else {
+    deleteOldRecordsBtn.disabled = true
+  }
+  lockPayrollMonthBtn.disabled = isLocked
+  unlockPayrollMonthBtn.disabled = !isLocked
+  lockPayrollMonthBtn.textContent = isLocked ? "Month Locked" : "Lock Month"
+  unlockPayrollMonthBtn.textContent = isLocked ? "Unlock Month" : "Month Unlocked"
+  leaveForm.classList.toggle("locked-section", isLocked)
+  payrollAdjustmentForm.classList.toggle("locked-section", isLocked)
 }
 
 function exportDashboardWorkbook() {
@@ -1149,6 +1656,7 @@ function buildSummaryExportRows(summaries) {
     "Monthly Salary": roundCurrency(summary.monthlySalary),
     "Days Present": summary.daysPresent,
     "Absent Days": summary.absentDays,
+    "Approved Leave Days": summary.approvedLeaveDays,
     "Total Hours": formatMinutesAsDuration(summary.totalMinutes),
     "Average Per Day": formatMinutesAsDuration(summary.averageMinutesPerDay),
     "Late Days": summary.lateDays,
@@ -1161,8 +1669,12 @@ function buildSummaryExportRows(summaries) {
     "Late Deduction": roundCurrency(summary.lateDeduction),
     "Early Leave Deduction": roundCurrency(summary.earlyLeaveDeduction),
     "Total Deductions": roundCurrency(summary.totalDeductions),
+    Bonus: roundCurrency(summary.bonus),
+    Penalty: roundCurrency(summary.penalty),
+    Advance: roundCurrency(summary.advance),
     "Overtime Pay": roundCurrency(summary.overtimePay),
-    "Net Salary": roundCurrency(summary.netSalary)
+    "Net Salary": roundCurrency(summary.netSalary),
+    Notes: summary.payrollNotes || summary.employeeNotes || ""
   }))
 }
 
@@ -1174,6 +1686,7 @@ function buildPayrollExportRows(summaries) {
     "Configured Workdays": Number(workSettings.monthlyWorkingDays || 26),
     "Days Present": summary.daysPresent,
     "Absent Days": summary.absentDays,
+    "Approved Leave Days": summary.approvedLeaveDays,
     "Salary Per Day": roundCurrency(summary.salaryPerDay),
     "Late Minutes": summary.lateMinutes,
     "Early Leave Minutes": summary.earlyLeaveMinutes,
@@ -1182,8 +1695,12 @@ function buildPayrollExportRows(summaries) {
     "Late Deduction": roundCurrency(summary.lateDeduction),
     "Early Leave Deduction": roundCurrency(summary.earlyLeaveDeduction),
     "Total Deductions": roundCurrency(summary.totalDeductions),
+    Bonus: roundCurrency(summary.bonus),
+    Penalty: roundCurrency(summary.penalty),
+    Advance: roundCurrency(summary.advance),
     "Overtime Pay": roundCurrency(summary.overtimePay),
-    "Net Salary": roundCurrency(summary.netSalary)
+    "Net Salary": roundCurrency(summary.netSalary),
+    Notes: summary.payrollNotes || summary.employeeNotes || ""
   }))
 }
 
@@ -1354,6 +1871,45 @@ function formatMonthLabel(monthKey) {
     year: "numeric",
     timeZone: timezone
   }).format(date)
+}
+
+function formatDateForDisplay(isoDateText) {
+  const parts = String(isoDateText || "").split("-")
+  if (parts.length !== 3) {
+    return isoDateText
+  }
+
+  return `${parts[2]}/${parts[1]}/${parts[0]}`
+}
+
+function formatTimeForDisplay(timeText) {
+  const parsed = new Date(`2000-01-01T${String(timeText || "00:00")}:00`)
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true
+  }).format(parsed)
+}
+
+function toInputDate(date) {
+  const parsedDate = date instanceof Date ? date : new Date(date)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return ""
+  }
+
+  const year = parsedDate.getFullYear()
+  const month = String(parsedDate.getMonth() + 1).padStart(2, "0")
+  const day = String(parsedDate.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function toInputTime(date) {
+  const parsedDate = date instanceof Date ? date : new Date(date)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return ""
+  }
+
+  return `${String(parsedDate.getHours()).padStart(2, "0")}:${String(parsedDate.getMinutes()).padStart(2, "0")}`
 }
 
 function formatDateKey(date) {

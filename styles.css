@@ -342,6 +342,15 @@ body, html {
     overflow: hidden;
 }
 
+.employee-detail-shell,
+.leave-management-shell,
+.payroll-adjustments-shell {
+    display: flex;
+    flex-direction: column;
+    max-height: 760px;
+    overflow: hidden;
+}
+
 .insights-grid > .records-card {
     height: 320px;
     padding: 18px;
@@ -510,6 +519,17 @@ body, html {
     border-radius: 16px;
 }
 
+.employee-detail-shell .table-responsive,
+.leave-management-shell .table-responsive,
+.payroll-adjustments-shell .table-responsive {
+    flex: 1;
+    max-height: 280px;
+    overflow: auto;
+    border-radius: 16px;
+    border: 1px solid rgba(32, 167, 139, 0.08);
+    background: rgba(251, 253, 252, 0.92);
+}
+
 .employee-summary-card .table,
 .manage-employees-card .table {
     margin-bottom: 0;
@@ -534,14 +554,20 @@ body, html {
 
 .audit-log-shell .audit-log-list::-webkit-scrollbar,
 .employee-summary-card .table-responsive::-webkit-scrollbar,
-.manage-employees-card .table-responsive::-webkit-scrollbar {
+.manage-employees-card .table-responsive::-webkit-scrollbar,
+.employee-detail-shell .table-responsive::-webkit-scrollbar,
+.leave-management-shell .table-responsive::-webkit-scrollbar,
+.payroll-adjustments-shell .table-responsive::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
 
 .audit-log-shell .audit-log-list::-webkit-scrollbar-thumb,
 .employee-summary-card .table-responsive::-webkit-scrollbar-thumb,
-.manage-employees-card .table-responsive::-webkit-scrollbar-thumb {
+.manage-employees-card .table-responsive::-webkit-scrollbar-thumb,
+.employee-detail-shell .table-responsive::-webkit-scrollbar-thumb,
+.leave-management-shell .table-responsive::-webkit-scrollbar-thumb,
+.payroll-adjustments-shell .table-responsive::-webkit-scrollbar-thumb {
     background: rgba(13, 95, 81, 0.24);
     border-radius: 999px;
 }
@@ -597,6 +623,52 @@ body, html {
     max-height: 660px;
 }
 
+.employee-detail-shell .mini-summary-grid {
+    margin-bottom: 10px;
+}
+
+.profile-notes-card {
+    background: rgba(250, 253, 252, 0.94);
+    border: 1px solid rgba(32, 167, 139, 0.08);
+}
+
+.profile-photo-panel,
+.profile-text-panel {
+    height: 100%;
+    padding: 14px;
+    border-radius: 16px;
+    background: rgba(247, 251, 249, 0.92);
+    border: 1px solid rgba(32, 167, 139, 0.08);
+}
+
+.profile-text-panel {
+    min-height: 100%;
+}
+
+.profile-photo-slot {
+    min-height: 92px;
+    display: flex;
+    align-items: center;
+}
+
+.profile-text-panel .empty-state {
+    min-height: 92px;
+    margin: 0;
+}
+
+.locked-section {
+    opacity: 0.68;
+}
+
+.locked-section::after {
+    content: "This month is payroll locked.";
+    display: block;
+    margin-top: 10px;
+    color: #9a5d00;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
 .delete-password-dialog {
     width: min(92vw, 420px);
     border: 0;
@@ -634,7 +706,10 @@ body, html {
 
     .employee-summary-card .table-responsive,
     .manage-employees-card .table-responsive,
-    .audit-log-shell .audit-log-list {
+    .audit-log-shell .audit-log-list,
+    .employee-detail-shell .table-responsive,
+    .leave-management-shell .table-responsive,
+    .payroll-adjustments-shell .table-responsive {
         max-height: 280px;
     }
 }

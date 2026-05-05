@@ -122,13 +122,35 @@ function createEmployeeId(fullName) {
   return `${normalizedName || "employee"}-${Date.now()}`
 }
 
+function createRecordId(prefix) {
+  return `${prefix}-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`
+}
+
+function buildMonthKeyFromTimestamp(timestamp) {
+  const date = new Date(timestamp)
+  if (Number.isNaN(date.getTime())) {
+    return ""
+  }
+
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`
+}
+
+function parseRecordId(recordId) {
+  const [partitionKey, ...rowKeyParts] = String(recordId || "").split("__")
+  return {
+    partitionKey,
+    rowKey: rowKeyParts.join("__")
+  }
+}
+
 function normalizeEmployee(employee) {
   return {
     id: String(employee.id || createEmployeeId(employee.fullName || employee.username || "employee")),
     username: String(employee.username || "").trim(),
     fullName: String(employee.fullName || employee.username || "").trim(),
     active: employee.active !== false,
-    monthlySalary: Math.max(0, Number(employee.monthlySalary || 0))
+    monthlySalary: Math.max(0, Number(employee.monthlySalary || 0)),
+    notes: String(employee.notes || "").trim()
   }
 }
 
@@ -141,7 +163,8 @@ async function listEmployees() {
       username: entity.username,
       fullName: entity.fullName,
       active: entity.active !== false,
-      monthlySalary: Math.max(0, Number(entity.monthlySalary || 0))
+      monthlySalary: Math.max(0, Number(entity.monthlySalary || 0)),
+      notes: entity.notes || ""
     })
   }
 
@@ -158,7 +181,8 @@ async function upsertEmployee(employee, clientOverride) {
     username: normalizedEmployee.username,
     fullName: normalizedEmployee.fullName,
     active: normalizedEmployee.active,
-    monthlySalary: normalizedEmployee.monthlySalary
+    monthlySalary: normalizedEmployee.monthlySalary,
+    notes: normalizedEmployee.notes
   }, "Replace")
 
   return normalizedEmployee
@@ -192,6 +216,162 @@ async function getWorkSettings() {
     workdayEndTime: String(entity?.workdayEndTime || defaultWorkSettings.workdayEndTime),
     lateGraceMinutes: Number(entity?.lateGraceMinutes ?? defaultWorkSettings.lateGraceMinutes),
     monthlyWorkingDays: Math.max(1, Number(entity?.monthlyWorkingDays ?? defaultWorkSettings.monthlyWorkingDays ?? 26))
+  }
+}
+
+async function listLeaveRecords() {
+  const { tables } = await ensureStorage()
+  const leaves = []
+  for await (const entity of tables.settings.listEntities({
+    queryOptions: {
+      filter: "PartitionKey eq 'leave'"
+    }
+  })) {
+    leaves.push({
+      id: entity.rowKey,
+      employeeId: entity.employeeId || "",
+      employeeName: entity.employeeName || "",
+      date: entity.date || "",
+      monthKey: entity.monthKey || "",
+      type: entity.type || "Paid Leave",
+      notes: entity.notes || "",
+      createdAt: entity.createdAt || ""
+    })
+  }
+
+  return leaves.sort((first, second) => String(second.date).localeCompare(String(first.date)))
+}
+
+async function upsertLeaveRecord(leave) {
+  const { tables } = await ensureStorage()
+  const normalizedLeave = {
+    id: String(leave.id || createRecordId("leave")),
+    employeeId: String(leave.employeeId || "").trim(),
+    employeeName: String(leave.employeeName || "").trim(),
+    date: String(leave.date || "").trim(),
+    type: String(leave.type || "Paid Leave").trim(),
+    notes: String(leave.notes || "").trim(),
+    createdAt: String(leave.createdAt || new Date().toISOString())
+  }
+
+  normalizedLeave.monthKey = normalizedLeave.date.slice(0, 7)
+  await assertMonthUnlocked(normalizedLeave.monthKey)
+  await tables.settings.upsertEntity({
+    partitionKey: "leave",
+    rowKey: normalizedLeave.id,
+    ...normalizedLeave
+  }, "Replace")
+
+  return normalizedLeave
+}
+
+async function deleteLeaveRecord(leaveId) {
+  const { tables } = await ensureStorage()
+  const entity = await tables.settings.getEntity("leave", leaveId)
+  await assertMonthUnlocked(entity.monthKey || "")
+  await tables.settings.deleteEntity("leave", leaveId)
+}
+
+async function listPayrollAdjustments() {
+  const { tables } = await ensureStorage()
+  const adjustments = []
+  for await (const entity of tables.settings.listEntities({
+    queryOptions: {
+      filter: "PartitionKey eq 'payrollAdjustment'"
+    }
+  })) {
+    adjustments.push({
+      id: entity.rowKey,
+      employeeId: entity.employeeId || "",
+      employeeName: entity.employeeName || "",
+      monthKey: entity.monthKey || "",
+      bonus: Math.max(0, Number(entity.bonus || 0)),
+      penalty: Math.max(0, Number(entity.penalty || 0)),
+      advance: Math.max(0, Number(entity.advance || 0)),
+      notes: entity.notes || "",
+      updatedAt: entity.updatedAt || ""
+    })
+  }
+
+  return adjustments.sort((first, second) => String(second.monthKey).localeCompare(String(first.monthKey)))
+}
+
+async function upsertPayrollAdjustment(adjustment) {
+  const { tables } = await ensureStorage()
+  const normalizedAdjustment = {
+    id: String(adjustment.id || `${adjustment.employeeId}_${adjustment.monthKey}`),
+    employeeId: String(adjustment.employeeId || "").trim(),
+    employeeName: String(adjustment.employeeName || "").trim(),
+    monthKey: String(adjustment.monthKey || "").trim(),
+    bonus: Math.max(0, Number(adjustment.bonus || 0)),
+    penalty: Math.max(0, Number(adjustment.penalty || 0)),
+    advance: Math.max(0, Number(adjustment.advance || 0)),
+    notes: String(adjustment.notes || "").trim(),
+    updatedAt: new Date().toISOString()
+  }
+
+  await assertMonthUnlocked(normalizedAdjustment.monthKey)
+  await tables.settings.upsertEntity({
+    partitionKey: "payrollAdjustment",
+    rowKey: normalizedAdjustment.id,
+    ...normalizedAdjustment
+  }, "Replace")
+
+  return normalizedAdjustment
+}
+
+async function deletePayrollAdjustment(adjustmentId) {
+  const { tables } = await ensureStorage()
+  const entity = await tables.settings.getEntity("payrollAdjustment", adjustmentId)
+  await assertMonthUnlocked(entity.monthKey || "")
+  await tables.settings.deleteEntity("payrollAdjustment", adjustmentId)
+}
+
+async function listPayrollLocks() {
+  const { tables } = await ensureStorage()
+  const locks = []
+  for await (const entity of tables.settings.listEntities({
+    queryOptions: {
+      filter: "PartitionKey eq 'payrollLock'"
+    }
+  })) {
+    locks.push({
+      monthKey: entity.rowKey,
+      locked: entity.locked !== false,
+      lockedAt: entity.lockedAt || "",
+      lockedBy: entity.lockedBy || "Admin"
+    })
+  }
+
+  return locks.sort((first, second) => String(second.monthKey).localeCompare(String(first.monthKey)))
+}
+
+async function setPayrollLock(monthKey, locked) {
+  const { tables } = await ensureStorage()
+  const normalizedMonthKey = String(monthKey || "").trim()
+  await tables.settings.upsertEntity({
+    partitionKey: "payrollLock",
+    rowKey: normalizedMonthKey,
+    locked: Boolean(locked),
+    lockedAt: new Date().toISOString(),
+    lockedBy: "Admin"
+  }, "Replace")
+
+  return {
+    monthKey: normalizedMonthKey,
+    locked: Boolean(locked)
+  }
+}
+
+async function isMonthLocked(monthKey) {
+  const { tables } = await ensureStorage()
+  const entity = await getEntity(tables.settings, "payrollLock", monthKey)
+  return entity?.locked !== false && Boolean(entity)
+}
+
+async function assertMonthUnlocked(monthKey) {
+  if (monthKey && await isMonthLocked(monthKey)) {
+    throw new Error(`Month ${monthKey} is payroll locked.`)
   }
 }
 
@@ -349,6 +529,7 @@ function calculateDurationText(startTimestamp, endTimestamp) {
 async function createAttendanceSignIn(payload) {
   const { tables } = await ensureStorage()
   const normalizedPayload = normalizeAttendancePayload(payload)
+  await assertMonthUnlocked(buildMonthKeyFromTimestamp(normalizedPayload.timestamp))
   const signInPhoto = await uploadPhoto(
     normalizedPayload.signInPhoto,
     normalizedPayload.employeeId,
@@ -402,6 +583,7 @@ async function findOpenAttendanceRecord(employeeId) {
 async function completeAttendanceSignOut(payload) {
   const { tables } = await ensureStorage()
   const normalizedPayload = normalizeAttendancePayload(payload)
+  await assertMonthUnlocked(buildMonthKeyFromTimestamp(normalizedPayload.timestamp))
   const existingRecord = await findOpenAttendanceRecord(normalizedPayload.employeeId)
   const signOutPhoto = await uploadPhoto(
     normalizedPayload.signOutPhoto,
@@ -522,7 +704,8 @@ async function deleteAttendanceRecordsBefore(cutoffIso) {
     throw new Error("Invalid cutoff date.")
   }
 
-  let deletedCount = 0
+  const deletableEntities = []
+  const monthKeysToValidate = new Set()
   for await (const entity of tables.attendance.listEntities()) {
     const entityTimestamp = entity.signInTimestamp || entity.timestamp || entity.signOutTimestamp || ""
     const recordDate = new Date(entityTimestamp)
@@ -530,6 +713,16 @@ async function deleteAttendanceRecordsBefore(cutoffIso) {
       continue
     }
 
+    monthKeysToValidate.add(buildMonthKeyFromTimestamp(recordDate.toISOString()))
+    deletableEntities.push(entity)
+  }
+
+  for (const monthKey of monthKeysToValidate) {
+    await assertMonthUnlocked(monthKey)
+  }
+
+  let deletedCount = 0
+  for (const entity of deletableEntities) {
     await tables.attendance.deleteEntity(entity.partitionKey, entity.rowKey)
     deletedCount += 1
   }
@@ -540,17 +733,20 @@ async function deleteAttendanceRecordsBefore(cutoffIso) {
 async function deleteSelectedAttendanceRecords(recordIds) {
   const { tables } = await ensureStorage()
   const uniqueRecordIds = Array.from(new Set((recordIds || []).map((item) => String(item || "").trim()).filter(Boolean)))
-  let deletedCount = 0
+  const deletableEntities = []
+  const monthKeysToValidate = new Set()
 
   for (const recordId of uniqueRecordIds) {
-    const [partitionKey, rowKey] = recordId.split("__")
+    const { partitionKey, rowKey } = parseRecordId(recordId)
     if (!partitionKey || !rowKey) {
       continue
     }
 
     try {
-      await tables.attendance.deleteEntity(partitionKey, rowKey)
-      deletedCount += 1
+      const entity = await tables.attendance.getEntity(partitionKey, rowKey)
+      const entityTimestamp = entity.signInTimestamp || entity.timestamp || entity.signOutTimestamp || ""
+      monthKeysToValidate.add(buildMonthKeyFromTimestamp(entityTimestamp))
+      deletableEntities.push({ partitionKey, rowKey })
     } catch (error) {
       if (error.statusCode !== 404) {
         throw error
@@ -558,7 +754,45 @@ async function deleteSelectedAttendanceRecords(recordIds) {
     }
   }
 
+  for (const monthKey of monthKeysToValidate) {
+    await assertMonthUnlocked(monthKey)
+  }
+
+  let deletedCount = 0
+
+  for (const entity of deletableEntities) {
+    await tables.attendance.deleteEntity(entity.partitionKey, entity.rowKey)
+    deletedCount += 1
+  }
+
   return deletedCount
+}
+
+async function fixMissingSignOut(recordId, payload) {
+  const { tables } = await ensureStorage()
+  const { partitionKey, rowKey } = parseRecordId(recordId)
+  if (!partitionKey || !rowKey) {
+    throw new Error("Invalid attendance record id.")
+  }
+
+  const entity = await tables.attendance.getEntity(partitionKey, rowKey)
+  const signOutTimestamp = String(payload.signOutTimestamp || new Date().toISOString())
+  await assertMonthUnlocked(buildMonthKeyFromTimestamp(entity.signInTimestamp || entity.timestamp || signOutTimestamp))
+  const calculatedDuration = calculateDurationText(entity.signInTimestamp || entity.timestamp, signOutTimestamp)
+
+  await tables.attendance.upsertEntity({
+    ...entity,
+    signOutDate: String(payload.signOutDate || ""),
+    signOutTime: String(payload.signOutTime || ""),
+    signOutTimestamp,
+    duration: calculatedDuration,
+    status: "closed"
+  }, "Replace")
+
+  return {
+    recordId,
+    duration: calculatedDuration
+  }
 }
 
 function escapeODataValue(value) {
@@ -573,6 +807,15 @@ module.exports = {
   replaceEmployeesWithDefaults,
   getWorkSettings,
   saveWorkSettings,
+  listLeaveRecords,
+  upsertLeaveRecord,
+  deleteLeaveRecord,
+  listPayrollAdjustments,
+  upsertPayrollAdjustment,
+  deletePayrollAdjustment,
+  listPayrollLocks,
+  setPayrollLock,
+  isMonthLocked,
   addAuditLogEntry,
   listAuditLog,
   createAttendanceSignIn,
@@ -580,5 +823,6 @@ module.exports = {
   listAttendanceRecords,
   listOpenAttendanceEmployeeIds,
   deleteAttendanceRecordsBefore,
-  deleteSelectedAttendanceRecords
+  deleteSelectedAttendanceRecords,
+  fixMissingSignOut
 }

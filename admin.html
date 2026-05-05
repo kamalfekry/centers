@@ -165,7 +165,7 @@
         </section>
 
         <section class="employee-detail-grid mt-4">
-            <article class="records-card compact-card manage-employees-card">
+            <article class="records-card compact-card manage-employees-card employee-detail-shell">
                 <div class="section-header">
                     <div>
                         <p class="eyebrow mb-1">Employee Drill-down</p>
@@ -188,6 +188,43 @@
                     <div class="mini-summary-card">
                         <span class="summary-label">Missing Sign-outs</span>
                         <strong class="mini-summary-value" id="detailMissingSignOuts">0</strong>
+                    </div>
+                    <div class="mini-summary-card">
+                        <span class="summary-label">Salary</span>
+                        <strong class="mini-summary-value" id="detailMonthlySalary">0.00 EGP</strong>
+                    </div>
+                    <div class="mini-summary-card">
+                        <span class="summary-label">Net Salary</span>
+                        <strong class="mini-summary-value" id="detailNetSalary">0.00 EGP</strong>
+                    </div>
+                    <div class="mini-summary-card">
+                        <span class="summary-label">Approved Leave</span>
+                        <strong class="mini-summary-value" id="detailApprovedLeaveDays">0</strong>
+                    </div>
+                </div>
+                <div class="records-card profile-notes-card mt-3">
+                    <div class="section-header mb-2">
+                        <h3 class="section-title">Employee Profile</h3>
+                    </div>
+                    <div class="row g-3 align-items-start">
+                        <div class="col-lg-4">
+                            <div class="profile-photo-panel">
+                                <div>
+                                    <span class="summary-label">Latest Sign-in Photo</span>
+                                    <div id="detailLatestSignInPhoto" class="profile-photo-slot mt-2"></div>
+                                </div>
+                                <div class="mt-3">
+                                    <span class="summary-label">Latest Sign-out Photo</span>
+                                    <div id="detailLatestSignOutPhoto" class="profile-photo-slot mt-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-8">
+                            <div class="profile-text-panel">
+                                <span class="summary-label">Employee Notes</span>
+                                <div id="detailEmployeeNotes" class="empty-state text-start px-0 py-2">No employee selected.</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="table-responsive mt-3">
@@ -236,10 +273,129 @@
                         <label for="monthlyWorkingDays" class="form-label">Monthly Working Days</label>
                         <input id="monthlyWorkingDays" type="number" min="1" class="form-control" required>
                     </div>
+                    <div class="col-md-4">
+                        <label for="payrollLockMonth" class="form-label">Payroll Lock Month</label>
+                        <input id="payrollLockMonth" type="month" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Payroll Lock</label>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-danger w-100" id="lockPayrollMonthBtn">Lock Month</button>
+                            <button type="button" class="btn btn-outline-secondary w-100" id="unlockPayrollMonthBtn">Unlock Month</button>
+                        </div>
+                    </div>
                     <div class="col-12">
                         <button type="submit" class="btn btn-success">Save Workday Settings</button>
                     </div>
                 </form>
+            </article>
+        </section>
+
+        <section class="management-grid mt-4">
+            <article class="records-card compact-card leave-management-shell">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow mb-1">HR Attendance Control</p>
+                        <h2 class="section-title">Leave / Vacation Management</h2>
+                    </div>
+                </div>
+                <form id="leaveForm" class="row g-3">
+                    <input id="leaveIdInput" type="hidden">
+                    <div class="col-md-4">
+                        <label for="leaveEmployeeInput" class="form-label">Employee</label>
+                        <select id="leaveEmployeeInput" class="form-select" required></select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="leaveDateInput" class="form-label">Date</label>
+                        <input id="leaveDateInput" type="date" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="leaveTypeInput" class="form-label">Leave Type</label>
+                        <select id="leaveTypeInput" class="form-select">
+                            <option value="Paid Leave">Paid Leave</option>
+                            <option value="Excused Absence">Excused Absence</option>
+                            <option value="Sick Leave">Sick Leave</option>
+                            <option value="Unpaid Leave">Unpaid Leave</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-success w-100">Save Leave</button>
+                    </div>
+                    <div class="col-12">
+                        <label for="leaveNotesInput" class="form-label">Notes</label>
+                        <input id="leaveNotesInput" type="text" class="form-control" placeholder="Optional note">
+                    </div>
+                </form>
+                <div class="table-responsive mt-3">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Employee</th>
+                                <th scope="col">Date</th>
+                                <th scope="col">Type</th>
+                                <th scope="col">Notes</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaveRecordsBody"></tbody>
+                    </table>
+                </div>
+            </article>
+
+            <article class="records-card compact-card payroll-adjustments-shell">
+                <div class="section-header">
+                    <div>
+                        <p class="eyebrow mb-1">HR Payroll Control</p>
+                        <h2 class="section-title">Manual Payroll Adjustments</h2>
+                    </div>
+                </div>
+                <form id="payrollAdjustmentForm" class="row g-3">
+                    <input id="payrollAdjustmentIdInput" type="hidden">
+                    <div class="col-md-6">
+                        <label for="payrollEmployeeInput" class="form-label">Employee</label>
+                        <select id="payrollEmployeeInput" class="form-select" required></select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="payrollMonthInput" class="form-label">Month</label>
+                        <input id="payrollMonthInput" type="month" class="form-control" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="payrollBonusInput" class="form-label">Bonus</label>
+                        <input id="payrollBonusInput" type="number" min="0" step="0.01" class="form-control" value="0">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="payrollPenaltyInput" class="form-label">Penalty</label>
+                        <input id="payrollPenaltyInput" type="number" min="0" step="0.01" class="form-control" value="0">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="payrollAdvanceInput" class="form-label">Advance</label>
+                        <input id="payrollAdvanceInput" type="number" min="0" step="0.01" class="form-control" value="0">
+                    </div>
+                    <div class="col-12">
+                        <label for="payrollNotesInput" class="form-label">Notes</label>
+                        <input id="payrollNotesInput" type="text" class="form-control" placeholder="Optional note">
+                    </div>
+                    <div class="col-12 d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-success">Save Adjustment</button>
+                        <button type="button" class="btn btn-outline-secondary" id="resetPayrollAdjustmentBtn">Reset Adjustment</button>
+                    </div>
+                </form>
+                <div class="table-responsive mt-3">
+                    <table class="table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th scope="col">Employee</th>
+                                <th scope="col">Month</th>
+                                <th scope="col">Bonus</th>
+                                <th scope="col">Penalty</th>
+                                <th scope="col">Advance</th>
+                                <th scope="col">Notes</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="payrollAdjustmentsBody"></tbody>
+                    </table>
+                </div>
             </article>
         </section>
 
@@ -271,6 +427,10 @@
                             <label for="employeeActiveInput" class="form-check-label">Active</label>
                         </div>
                     </div>
+                    <div class="col-12">
+                        <label for="employeeNotesInput" class="form-label">Employee Notes</label>
+                        <input id="employeeNotesInput" type="text" class="form-control" placeholder="Optional note for profile">
+                    </div>
                     <div class="col-12 d-flex flex-wrap gap-2">
                         <button type="submit" class="btn btn-success">Save Employee</button>
                         <button type="button" class="btn btn-outline-secondary" id="resetEmployeeFormBtn">Reset Form</button>
@@ -284,6 +444,7 @@
                                 <th scope="col">Employee</th>
                                 <th scope="col">Username</th>
                                 <th scope="col">Salary</th>
+                                <th scope="col">Notes</th>
                                 <th scope="col">Status</th>
                                 <th scope="col">Actions</th>
                             </tr>
@@ -383,6 +544,28 @@
                     <div class="d-flex gap-2 mt-3">
                         <button type="button" class="btn btn-outline-secondary w-100" id="deletePasswordCancelBtn">Cancel</button>
                         <button type="submit" class="btn btn-danger w-100" id="deletePasswordConfirmBtn">Confirm</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="fixSignOutModal" class="position-fixed top-0 start-0 w-100 h-100 d-none align-items-center justify-content-center bg-dark bg-opacity-75 px-3" style="z-index: 1091;">
+        <div class="card shadow-lg delete-password-dialog">
+            <div class="card-body p-4">
+                <p class="text-uppercase text-muted small mb-2">Attendance Fix</p>
+                <h2 class="h4 mb-3">Close Missing Sign-out</h2>
+                <p id="fixSignOutPrompt" class="text-muted mb-3">Enter the sign-out date and time.</p>
+                <form id="fixSignOutForm" novalidate>
+                    <input id="fixSignOutRecordId" type="hidden">
+                    <label for="fixSignOutDateInput" class="form-label">Sign-out Date</label>
+                    <input id="fixSignOutDateInput" type="date" class="form-control" required>
+                    <label for="fixSignOutTimeInput" class="form-label mt-3">Sign-out Time</label>
+                    <input id="fixSignOutTimeInput" type="time" class="form-control" required>
+                    <div id="fixSignOutError" class="text-danger small mt-2 d-none">Date and time are required.</div>
+                    <div class="d-flex gap-2 mt-3">
+                        <button type="button" class="btn btn-outline-secondary w-100" id="fixSignOutCancelBtn">Cancel</button>
+                        <button type="submit" class="btn btn-success w-100">Save Sign-out</button>
                     </div>
                 </form>
             </div>

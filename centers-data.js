@@ -159,6 +159,56 @@
     return buildUrl(appConfig.apiHealthPath || "/health")
   }
 
+  function saveLeaveRecord(leave) {
+    return apiRequest("/dashboard-leaves", {
+      method: "POST",
+      auth: true,
+      body: leave
+    })
+  }
+
+  function deleteLeaveRecord(leaveId) {
+    return apiRequest(`/dashboard-leaves?id=${encodeURIComponent(leaveId)}`, {
+      method: "DELETE",
+      auth: true
+    })
+  }
+
+  function savePayrollAdjustment(adjustment) {
+    return apiRequest("/dashboard-payroll-adjustments", {
+      method: "POST",
+      auth: true,
+      body: adjustment
+    })
+  }
+
+  function deletePayrollAdjustment(adjustmentId) {
+    return apiRequest(`/dashboard-payroll-adjustments?id=${encodeURIComponent(adjustmentId)}`, {
+      method: "DELETE",
+      auth: true
+    })
+  }
+
+  function setPayrollLock(monthKey, password, locked) {
+    return apiRequest("/dashboard-payroll-lock", {
+      method: "POST",
+      auth: true,
+      body: {
+        monthKey,
+        password,
+        locked
+      }
+    })
+  }
+
+  function fixMissingSignOut(payload) {
+    return apiRequest("/dashboard-fix-signout", {
+      method: "POST",
+      auth: true,
+      body: payload
+    })
+  }
+
   window.CENTERS_DATA = {
     apiBaseUrl,
     createEmployeeId,
@@ -174,6 +224,12 @@
     syncImportedEmployees,
     deleteRecordsBeforeMonth,
     deleteSelectedRecords,
+    saveLeaveRecord,
+    deleteLeaveRecord,
+    savePayrollAdjustment,
+    deletePayrollAdjustment,
+    setPayrollLock,
+    fixMissingSignOut,
     submitAttendance,
     getApiHealthUrl
   }

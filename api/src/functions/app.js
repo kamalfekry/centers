@@ -10,6 +10,14 @@ const {
   replaceEmployeesWithDefaults,
   getWorkSettings,
   saveWorkSettings,
+  listLeaveRecords,
+  upsertLeaveRecord,
+  deleteLeaveRecord,
+  listPayrollAdjustments,
+  upsertPayrollAdjustment,
+  deletePayrollAdjustment,
+  listPayrollLocks,
+  setPayrollLock,
   addAuditLogEntry,
   listAuditLog,
   createAttendanceSignIn,
@@ -17,7 +25,8 @@ const {
   listAttendanceRecords,
   listOpenAttendanceEmployeeIds,
   deleteAttendanceRecordsBefore,
-  deleteSelectedAttendanceRecords
+  deleteSelectedAttendanceRecords,
+  fixMissingSignOut
 } = require("../lib/storage")
 
 app.http("public-bootstrap", {
@@ -160,11 +169,14 @@ app.http("dashboard-bootstrap", {
       return authError
     }
 
-    const [records, employees, settings, auditLog] = await Promise.all([
+    const [records, employees, settings, auditLog, leaveRecords, payrollAdjustments, payrollLocks] = await Promise.all([
       listAttendanceRecords(),
       listEmployees(),
       getWorkSettings(),
-      listAuditLog()
+      listAuditLog(),
+      listLeaveRecords(),
+      listPayrollAdjustments(),
+      listPayrollLocks()
     ])
 
     return json({
@@ -172,7 +184,10 @@ app.http("dashboard-bootstrap", {
       records,
       employees,
       settings,
-      auditLog
+      auditLog,
+      leaveRecords,
+      payrollAdjustments,
+      payrollLocks
     })
   }
 })
@@ -206,12 +221,150 @@ app.http("dashboard-employees", {
     const employee = await upsertEmployee(body)
     await addAuditLogEntry(
       body.id ? "Updated employee" : "Added employee",
-      `${employee.fullName} (${employee.username}) - salary ${employee.monthlySalary || 0}${employee.active ? "" : " marked inactive"}`
+      `${employee.fullName} (${employee.username}) - salary ${employee.monthlySalary || 0}${employee.notes ? `, notes: ${employee.notes}` : ""}${employee.active ? "" : " marked inactive"}`
     )
 
     return json({
       ok: true,
       employee
+    })
+  }
+})
+
+app.http("dashboard-leaves", {
+  methods: ["POST", "DELETE"],
+  authLevel: "anonymous",
+  route: "dashboard-leaves",
+  handler: async (request) => {
+    const authError = requireAdmin(request)
+    if (authError) {
+      return authError
+    }
+
+    if (request.method === "DELETE") {
+      const leaveId = request.query.get("id")
+      if (!leaveId) {
+        return errorResponse(400, "Leave id is required.")
+      }
+
+      await deleteLeaveRecord(leaveId)
+      await addAuditLogEntry("Deleted leave", `Removed leave record ${leaveId}.`)
+      return json({ ok: true })
+    }
+
+    const body = await readJsonBody(request)
+    if (!body?.employeeId || !body?.date) {
+      return errorResponse(400, "Employee and leave date are required.")
+    }
+
+    const leave = await upsertLeaveRecord(body)
+    await addAuditLogEntry(
+      body.id ? "Updated leave" : "Added leave",
+      `${leave.employeeName} - ${leave.type} on ${leave.date}${leave.notes ? ` (${leave.notes})` : ""}`
+    )
+
+    return json({
+      ok: true,
+      leave
+    })
+  }
+})
+
+app.http("dashboard-payroll-adjustments", {
+  methods: ["POST", "DELETE"],
+  authLevel: "anonymous",
+  route: "dashboard-payroll-adjustments",
+  handler: async (request) => {
+    const authError = requireAdmin(request)
+    if (authError) {
+      return authError
+    }
+
+    if (request.method === "DELETE") {
+      const adjustmentId = request.query.get("id")
+      if (!adjustmentId) {
+        return errorResponse(400, "Adjustment id is required.")
+      }
+
+      await deletePayrollAdjustment(adjustmentId)
+      await addAuditLogEntry("Deleted payroll adjustment", `Removed payroll adjustment ${adjustmentId}.`)
+      return json({ ok: true })
+    }
+
+    const body = await readJsonBody(request)
+    if (!body?.employeeId || !body?.monthKey) {
+      return errorResponse(400, "Employee and month are required.")
+    }
+
+    const adjustment = await upsertPayrollAdjustment(body)
+    await addAuditLogEntry(
+      "Updated payroll adjustment",
+      `${adjustment.employeeName} - ${adjustment.monthKey}, bonus ${adjustment.bonus}, penalty ${adjustment.penalty}, advance ${adjustment.advance}`
+    )
+
+    return json({
+      ok: true,
+      adjustment
+    })
+  }
+})
+
+app.http("dashboard-payroll-lock", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "dashboard-payroll-lock",
+  handler: async (request) => {
+    const authError = requireAdmin(request)
+    if (authError) {
+      return authError
+    }
+
+    const body = await readJsonBody(request)
+    const monthKey = String(body?.monthKey || "").trim()
+    const password = String(body?.password || "")
+    const locked = body?.locked !== false
+    const config = getConfig()
+
+    if (password !== config.adminPassword) {
+      return errorResponse(403, "Incorrect admin password.")
+    }
+
+    if (!/^\d{4}-\d{2}$/.test(monthKey)) {
+      return errorResponse(400, "A valid month is required.")
+    }
+
+    const result = await setPayrollLock(monthKey, locked)
+    await addAuditLogEntry(locked ? "Locked payroll month" : "Unlocked payroll month", `${monthKey}`)
+
+    return json({
+      ok: true,
+      lock: result
+    })
+  }
+})
+
+app.http("dashboard-fix-signout", {
+  methods: ["POST"],
+  authLevel: "anonymous",
+  route: "dashboard-fix-signout",
+  handler: async (request) => {
+    const authError = requireAdmin(request)
+    if (authError) {
+      return authError
+    }
+
+    const body = await readJsonBody(request)
+    const recordId = String(body?.recordId || "").trim()
+    if (!recordId || !body?.signOutDate || !body?.signOutTime || !body?.signOutTimestamp) {
+      return errorResponse(400, "Record id and sign-out information are required.")
+    }
+
+    const result = await fixMissingSignOut(recordId, body)
+    await addAuditLogEntry("Fixed missing sign-out", `Closed open attendance record ${recordId}.`)
+
+    return json({
+      ok: true,
+      result
     })
   }
 })
