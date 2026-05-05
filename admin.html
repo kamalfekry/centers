@@ -143,13 +143,18 @@
                     <thead>
                         <tr>
                             <th scope="col">Employee</th>
+                            <th scope="col">Salary</th>
                             <th scope="col">Days Present</th>
+                            <th scope="col">Absent Days</th>
                             <th scope="col">Total Hours</th>
                             <th scope="col">Avg / Day</th>
                             <th scope="col">Late Days</th>
                             <th scope="col">Early Leave</th>
                             <th scope="col">Overtime</th>
                             <th scope="col">Missing Sign-outs</th>
+                            <th scope="col">Total Deductions</th>
+                            <th scope="col">Overtime Pay</th>
+                            <th scope="col">Net Salary</th>
                         </tr>
                     </thead>
                     <tbody id="monthlySummaryBody"></tbody>
@@ -228,6 +233,10 @@
                         <label for="lateGraceMinutes" class="form-label">Late Grace (minutes)</label>
                         <input id="lateGraceMinutes" type="number" min="0" class="form-control" required>
                     </div>
+                    <div class="col-md-4">
+                        <label for="monthlyWorkingDays" class="form-label">Monthly Working Days</label>
+                        <input id="monthlyWorkingDays" type="number" min="1" class="form-control" required>
+                    </div>
                     <div class="col-12">
                         <button type="submit" class="btn btn-success">Save Workday Settings</button>
                     </div>
@@ -245,13 +254,17 @@
                 </div>
                 <form id="employeeForm" class="row g-3">
                     <input id="employeeIdInput" type="hidden">
-                    <div class="col-md-6">
+                    <div class="col-md-5">
                         <label for="employeeNameInput" class="form-label">Full Name</label>
                         <input id="employeeNameInput" type="text" class="form-control" required>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label for="employeeUsernameInput" class="form-label">Username</label>
                         <input id="employeeUsernameInput" type="text" class="form-control" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="employeeSalaryInput" class="form-label">Monthly Salary</label>
+                        <input id="employeeSalaryInput" type="number" min="0" step="0.01" class="form-control" value="0" required>
                     </div>
                     <div class="col-md-2 d-flex align-items-end">
                         <div class="form-check mb-2">
@@ -271,6 +284,7 @@
                             <tr>
                                 <th scope="col">Employee</th>
                                 <th scope="col">Username</th>
+                                <th scope="col">Salary</th>
                                 <th scope="col">Status</th>
                                 <th scope="col">Actions</th>
                             </tr>

@@ -46,11 +46,13 @@ const settingsForm = document.getElementById("settingsForm")
 const workdayStartTimeInput = document.getElementById("workdayStartTime")
 const workdayEndTimeInput = document.getElementById("workdayEndTime")
 const lateGraceMinutesInput = document.getElementById("lateGraceMinutes")
+const monthlyWorkingDaysInput = document.getElementById("monthlyWorkingDays")
 
 const employeeForm = document.getElementById("employeeForm")
 const employeeIdInput = document.getElementById("employeeIdInput")
 const employeeNameInput = document.getElementById("employeeNameInput")
 const employeeUsernameInput = document.getElementById("employeeUsernameInput")
+const employeeSalaryInput = document.getElementById("employeeSalaryInput")
 const employeeActiveInput = document.getElementById("employeeActiveInput")
 const resetEmployeeFormBtn = document.getElementById("resetEmployeeFormBtn")
 const syncImportedEmployeesBtn = document.getElementById("syncImportedEmployeesBtn")
@@ -68,7 +70,8 @@ let employeeProfiles = []
 let workSettings = centersData.defaultWorkSettings || {
   workdayStartTime: "09:00",
   workdayEndTime: "17:00",
-  lateGraceMinutes: 15
+  lateGraceMinutes: 15,
+  monthlyWorkingDays: 26
 }
 let auditLogEntries = []
 let selectedRecordIds = new Set()
@@ -237,6 +240,7 @@ function loadWorkSettingsIntoForm() {
   workdayStartTimeInput.value = workSettings.workdayStartTime || "09:00"
   workdayEndTimeInput.value = workSettings.workdayEndTime || "17:00"
   lateGraceMinutesInput.value = String(workSettings.lateGraceMinutes ?? 15)
+  monthlyWorkingDaysInput.value = String(workSettings.monthlyWorkingDays ?? 26)
 }
 
 async function handleSettingsSave(event) {
@@ -246,7 +250,8 @@ async function handleSettingsSave(event) {
     const nextSettings = {
       workdayStartTime: workdayStartTimeInput.value || "09:00",
       workdayEndTime: workdayEndTimeInput.value || "17:00",
-      lateGraceMinutes: Number(lateGraceMinutesInput.value || 0)
+      lateGraceMinutes: Number(lateGraceMinutesInput.value || 0),
+      monthlyWorkingDays: Number(monthlyWorkingDaysInput.value || 26)
     }
 
     const response = await centersData.saveWorkSettings(nextSettings)
@@ -264,6 +269,7 @@ async function handleEmployeeSave(event) {
 
   const fullName = employeeNameInput.value.trim()
   const username = employeeUsernameInput.value.trim()
+  const monthlySalary = Number(employeeSalaryInput.value || 0)
   if (!fullName || !username) {
     setStatus("Full name and username are required.")
     return
@@ -274,6 +280,7 @@ async function handleEmployeeSave(event) {
       id: employeeIdInput.value.trim() || centersData.createEmployeeId(fullName),
       fullName,
       username,
+      monthlySalary,
       active: employeeActiveInput.checked
     })
     resetEmployeeForm()
@@ -417,6 +424,7 @@ function syncSelectAllCheckbox(records) {
 function resetEmployeeForm() {
   employeeForm.reset()
   employeeIdInput.value = ""
+  employeeSalaryInput.value = "0"
   employeeActiveInput.checked = true
 }
 
@@ -431,6 +439,7 @@ function renderEmployeeDirectory() {
         <tr>
           <td class="fw-semibold">${escapeHtml(profile.fullName)}</td>
           <td>${escapeHtml(profile.username)}</td>
+          <td>${escapeHtml(formatCurrency(profile.monthlySalary || 0))}</td>
           <td>${renderStatusBadge(profile.active ? "Active" : "Inactive", profile.active ? "success" : "secondary")}</td>
           <td>
             <div class="d-flex gap-2 flex-wrap">
@@ -485,6 +494,7 @@ function editEmployee(employeeId) {
   employeeIdInput.value = profile.id
   employeeNameInput.value = profile.fullName
   employeeUsernameInput.value = profile.username
+  employeeSalaryInput.value = String(profile.monthlySalary || 0)
   employeeActiveInput.checked = profile.active !== false
   employeeNameInput.focus()
 }
@@ -645,6 +655,8 @@ function enrichRecord(record) {
 
 function buildMonthlySummaries(records) {
   const summaryMap = new Map()
+  const scheduledDailyMinutes = getScheduledWorkMinutesPerDay()
+  const monthlyWorkingDays = Math.max(1, Number(workSettings.monthlyWorkingDays || 26))
 
   employeeProfiles
     .filter((profile) => profile.active !== false)
@@ -653,6 +665,7 @@ function buildMonthlySummaries(records) {
         employeeId: profile.id,
         employeeName: profile.fullName,
         username: profile.username,
+        monthlySalary: Number(profile.monthlySalary || 0),
         daysPresentSet: new Set(),
         totalMinutes: 0,
         lateDays: 0,
@@ -669,6 +682,7 @@ function buildMonthlySummaries(records) {
       employeeId: record.employeeId,
       employeeName: record.employeeName,
       username: "",
+      monthlySalary: 0,
       daysPresentSet: new Set(),
       totalMinutes: 0,
       lateDays: 0,
@@ -701,10 +715,28 @@ function buildMonthlySummaries(records) {
   return Array.from(summaryMap.values())
     .map((summary) => {
       const daysPresent = summary.daysPresentSet.size
+      const absentDays = Math.max(0, monthlyWorkingDays - daysPresent)
+      const salaryPerDay = monthlyWorkingDays > 0 ? summary.monthlySalary / monthlyWorkingDays : 0
+      const salaryPerMinute = scheduledDailyMinutes > 0 ? salaryPerDay / scheduledDailyMinutes : 0
+      const absenceDeduction = absentDays * salaryPerDay
+      const lateDeduction = summary.lateMinutes * salaryPerMinute
+      const earlyLeaveDeduction = summary.earlyLeaveMinutes * salaryPerMinute
+      const overtimePay = summary.overtimeMinutes * salaryPerMinute
+      const totalDeductions = absenceDeduction + lateDeduction + earlyLeaveDeduction
+      const netSalary = Math.max(0, summary.monthlySalary - totalDeductions + overtimePay)
       return {
         ...summary,
         daysPresent,
-        averageMinutesPerDay: daysPresent ? Math.round(summary.totalMinutes / daysPresent) : 0
+        absentDays,
+        averageMinutesPerDay: daysPresent ? Math.round(summary.totalMinutes / daysPresent) : 0,
+        salaryPerDay,
+        salaryPerMinute,
+        absenceDeduction,
+        lateDeduction,
+        earlyLeaveDeduction,
+        overtimePay,
+        totalDeductions,
+        netSalary
       }
     })
     .sort((first, second) => second.totalMinutes - first.totalMinutes || first.employeeName.localeCompare(second.employeeName, "ar"))
@@ -863,13 +895,18 @@ function renderMonthlySummary(summaries) {
               ${escapeHtml(summary.employeeName)}
             </button>
           </td>
+          <td>${escapeHtml(formatCurrency(summary.monthlySalary))}</td>
           <td>${summary.daysPresent}</td>
+          <td>${summary.absentDays}</td>
           <td>${escapeHtml(formatMinutesAsDuration(summary.totalMinutes))}</td>
           <td>${escapeHtml(formatMinutesAsDuration(summary.averageMinutesPerDay))}</td>
           <td>${summary.lateDays}</td>
           <td>${summary.earlyLeaveDays}</td>
           <td>${escapeHtml(formatMinutesAsDuration(summary.overtimeMinutes))}</td>
           <td>${summary.missingSignOuts}</td>
+          <td>${escapeHtml(formatCurrency(summary.totalDeductions))}</td>
+          <td>${escapeHtml(formatCurrency(summary.overtimePay))}</td>
+          <td>${escapeHtml(formatCurrency(summary.netSalary))}</td>
         </tr>
       `
     })
@@ -1003,6 +1040,7 @@ function exportDashboardWorkbook() {
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(buildRecordExportRows(currentView.filteredRecords)), "Records")
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(buildSummaryExportRows(currentView.summaries)), "Monthly Summary")
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(buildPayrollExportRows(currentView.summaries)), "Payroll Report")
 
   if (currentView.detailSummary) {
     XLSX.utils.book_append_sheet(
@@ -1025,6 +1063,7 @@ function exportMonthlySummaryWorkbook() {
 
   const workbook = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(buildSummaryExportRows(currentView.summaries)), "Monthly Summary")
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(buildPayrollExportRows(currentView.summaries)), "Payroll Report")
   XLSX.writeFile(workbook, buildExportFilename("monthly-summary"))
   setStatus(`Exported ${currentView.summaries.length} employee summaries to Excel.`)
 }
@@ -1050,7 +1089,9 @@ function buildRecordExportRows(records) {
 function buildSummaryExportRows(summaries) {
   return summaries.map((summary) => ({
     Employee: summary.employeeName,
+    "Monthly Salary": roundCurrency(summary.monthlySalary),
     "Days Present": summary.daysPresent,
+    "Absent Days": summary.absentDays,
     "Total Hours": formatMinutesAsDuration(summary.totalMinutes),
     "Average Per Day": formatMinutesAsDuration(summary.averageMinutesPerDay),
     "Late Days": summary.lateDays,
@@ -1058,7 +1099,34 @@ function buildSummaryExportRows(summaries) {
     "Early Leave Days": summary.earlyLeaveDays,
     "Early Leave Minutes": formatMinutesAsDuration(summary.earlyLeaveMinutes),
     Overtime: formatMinutesAsDuration(summary.overtimeMinutes),
-    "Missing Sign-outs": summary.missingSignOuts
+    "Missing Sign-outs": summary.missingSignOuts,
+    "Absence Deduction": roundCurrency(summary.absenceDeduction),
+    "Late Deduction": roundCurrency(summary.lateDeduction),
+    "Early Leave Deduction": roundCurrency(summary.earlyLeaveDeduction),
+    "Total Deductions": roundCurrency(summary.totalDeductions),
+    "Overtime Pay": roundCurrency(summary.overtimePay),
+    "Net Salary": roundCurrency(summary.netSalary)
+  }))
+}
+
+function buildPayrollExportRows(summaries) {
+  return summaries.map((summary) => ({
+    Employee: summary.employeeName,
+    Username: summary.username || "",
+    "Monthly Salary": roundCurrency(summary.monthlySalary),
+    "Configured Workdays": Number(workSettings.monthlyWorkingDays || 26),
+    "Days Present": summary.daysPresent,
+    "Absent Days": summary.absentDays,
+    "Salary Per Day": roundCurrency(summary.salaryPerDay),
+    "Late Minutes": summary.lateMinutes,
+    "Early Leave Minutes": summary.earlyLeaveMinutes,
+    "Overtime Minutes": summary.overtimeMinutes,
+    "Absence Deduction": roundCurrency(summary.absenceDeduction),
+    "Late Deduction": roundCurrency(summary.lateDeduction),
+    "Early Leave Deduction": roundCurrency(summary.earlyLeaveDeduction),
+    "Total Deductions": roundCurrency(summary.totalDeductions),
+    "Overtime Pay": roundCurrency(summary.overtimePay),
+    "Net Salary": roundCurrency(summary.netSalary)
   }))
 }
 
@@ -1172,6 +1240,22 @@ function parseDurationMinutes(value) {
   return hours * 60 + minutes
 }
 
+function getScheduledWorkMinutesPerDay() {
+  const startTime = String(workSettings.workdayStartTime || "")
+  const endTime = String(workSettings.workdayEndTime || "")
+  const startMatch = startTime.match(/^(\d{1,2}):(\d{2})$/)
+  const endMatch = endTime.match(/^(\d{1,2}):(\d{2})$/)
+
+  if (!startMatch || !endMatch) {
+    return 8 * 60
+  }
+
+  const startMinutes = Number(startMatch[1]) * 60 + Number(startMatch[2])
+  const endMinutes = Number(endMatch[1]) * 60 + Number(endMatch[2])
+  const diff = endMinutes - startMinutes
+  return diff > 0 ? diff : 8 * 60
+}
+
 function formatMinutesAsDuration(totalMinutes) {
   const safeMinutes = Math.max(0, Math.round(Number(totalMinutes || 0)))
   const hours = Math.floor(safeMinutes / 60)
@@ -1182,6 +1266,17 @@ function formatMinutesAsDuration(totalMinutes) {
   }
 
   return `${hours}h ${minutes}m`
+}
+
+function roundCurrency(value) {
+  return Math.round(Number(value || 0) * 100) / 100
+}
+
+function formatCurrency(value) {
+  return `${roundCurrency(value).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })} EGP`
 }
 
 function buildMonthKey(date) {

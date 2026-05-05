@@ -6,7 +6,8 @@
   const defaultWorkSettings = {
     workdayStartTime: "09:00",
     workdayEndTime: "17:00",
-    lateGraceMinutes: 15
+    lateGraceMinutes: 15,
+    monthlyWorkingDays: 26
   }
 
   function buildUrl(path) {

@@ -127,7 +127,8 @@ function normalizeEmployee(employee) {
     id: String(employee.id || createEmployeeId(employee.fullName || employee.username || "employee")),
     username: String(employee.username || "").trim(),
     fullName: String(employee.fullName || employee.username || "").trim(),
-    active: employee.active !== false
+    active: employee.active !== false,
+    monthlySalary: Math.max(0, Number(employee.monthlySalary || 0))
   }
 }
 
@@ -139,7 +140,8 @@ async function listEmployees() {
       id: entity.rowKey,
       username: entity.username,
       fullName: entity.fullName,
-      active: entity.active !== false
+      active: entity.active !== false,
+      monthlySalary: Math.max(0, Number(entity.monthlySalary || 0))
     })
   }
 
@@ -155,7 +157,8 @@ async function upsertEmployee(employee, clientOverride) {
     rowKey: normalizedEmployee.id,
     username: normalizedEmployee.username,
     fullName: normalizedEmployee.fullName,
-    active: normalizedEmployee.active
+    active: normalizedEmployee.active,
+    monthlySalary: normalizedEmployee.monthlySalary
   }, "Replace")
 
   return normalizedEmployee
@@ -187,7 +190,8 @@ async function getWorkSettings() {
   return {
     workdayStartTime: String(entity?.workdayStartTime || defaultWorkSettings.workdayStartTime),
     workdayEndTime: String(entity?.workdayEndTime || defaultWorkSettings.workdayEndTime),
-    lateGraceMinutes: Number(entity?.lateGraceMinutes ?? defaultWorkSettings.lateGraceMinutes)
+    lateGraceMinutes: Number(entity?.lateGraceMinutes ?? defaultWorkSettings.lateGraceMinutes),
+    monthlyWorkingDays: Math.max(1, Number(entity?.monthlyWorkingDays ?? defaultWorkSettings.monthlyWorkingDays ?? 26))
   }
 }
 
@@ -196,7 +200,8 @@ async function saveWorkSettings(settings) {
   const normalizedSettings = {
     workdayStartTime: String(settings.workdayStartTime || defaultWorkSettings.workdayStartTime),
     workdayEndTime: String(settings.workdayEndTime || defaultWorkSettings.workdayEndTime),
-    lateGraceMinutes: Number(settings.lateGraceMinutes ?? defaultWorkSettings.lateGraceMinutes)
+    lateGraceMinutes: Number(settings.lateGraceMinutes ?? defaultWorkSettings.lateGraceMinutes),
+    monthlyWorkingDays: Math.max(1, Number(settings.monthlyWorkingDays ?? defaultWorkSettings.monthlyWorkingDays ?? 26))
   }
 
   await tables.settings.upsertEntity({

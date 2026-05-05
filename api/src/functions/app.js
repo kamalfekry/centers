@@ -206,7 +206,7 @@ app.http("dashboard-employees", {
     const employee = await upsertEmployee(body)
     await addAuditLogEntry(
       body.id ? "Updated employee" : "Added employee",
-      `${employee.fullName} (${employee.username})${employee.active ? "" : " marked inactive"}`
+      `${employee.fullName} (${employee.username}) - salary ${employee.monthlySalary || 0}${employee.active ? "" : " marked inactive"}`
     )
 
     return json({
@@ -256,7 +256,7 @@ app.http("dashboard-settings", {
     const settings = await saveWorkSettings(body || {})
     await addAuditLogEntry(
       "Updated settings",
-      `Workday ${settings.workdayStartTime}-${settings.workdayEndTime}, grace ${settings.lateGraceMinutes} minutes`
+      `Workday ${settings.workdayStartTime}-${settings.workdayEndTime}, grace ${settings.lateGraceMinutes} minutes, ${settings.monthlyWorkingDays} workdays`
     )
 
     return json({
