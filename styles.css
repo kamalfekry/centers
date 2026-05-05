@@ -335,6 +335,13 @@ body, html {
     align-items: start;
 }
 
+.manage-employees-shell,
+.audit-log-shell {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 .insights-grid > .records-card {
     height: 320px;
     padding: 18px;
@@ -542,6 +549,53 @@ body, html {
     margin-bottom: 6px;
 }
 
+.manage-employees-shell {
+    max-height: 660px;
+}
+
+.manage-employees-shell #employeeForm {
+    margin-bottom: 10px;
+}
+
+.manage-employees-shell #employeeForm .form-label {
+    font-size: 0.92rem;
+    margin-bottom: 0.35rem;
+}
+
+.manage-employees-shell #employeeForm .form-control {
+    margin-bottom: 0;
+    min-height: 42px;
+}
+
+.manage-employees-shell #employeeForm .btn {
+    padding-top: 0.55rem;
+    padding-bottom: 0.55rem;
+}
+
+.manage-employees-shell .table-responsive {
+    flex: 1;
+    max-height: 340px;
+    overflow: auto;
+    border-radius: 16px;
+    border: 1px solid rgba(32, 167, 139, 0.08);
+    background: rgba(251, 253, 252, 0.92);
+}
+
+.manage-employees-shell .table {
+    margin-bottom: 0;
+}
+
+.manage-employees-shell .table td,
+.manage-employees-shell .table th {
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+    font-size: 0.93rem;
+}
+
+.audit-log-shell {
+    max-height: 660px;
+}
+
 .manage-employees-card .btn,
 .employee-summary-card .btn,
 .audit-log-card .btn {
@@ -557,6 +611,11 @@ body, html {
         grid-template-columns: 1fr;
     }
 
+    .manage-employees-shell,
+    .audit-log-shell {
+        max-height: none;
+    }
+
     .section-header {
         flex-direction: column;
         align-items: stretch;
@@ -568,4 +627,3 @@ body, html {
         max-height: 280px;
     }
 }
-
