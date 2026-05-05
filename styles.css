@@ -524,21 +524,22 @@ body, html {
     font-size: 0.94rem;
 }
 
-.audit-log-card .audit-log-list {
-    max-height: 430px;
+.audit-log-shell .audit-log-list {
+    flex: 1;
+    max-height: 340px;
     overflow-y: auto;
     padding-right: 6px;
     align-content: start;
 }
 
-.audit-log-card .audit-log-list::-webkit-scrollbar,
+.audit-log-shell .audit-log-list::-webkit-scrollbar,
 .employee-summary-card .table-responsive::-webkit-scrollbar,
 .manage-employees-card .table-responsive::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
 
-.audit-log-card .audit-log-list::-webkit-scrollbar-thumb,
+.audit-log-shell .audit-log-list::-webkit-scrollbar-thumb,
 .employee-summary-card .table-responsive::-webkit-scrollbar-thumb,
 .manage-employees-card .table-responsive::-webkit-scrollbar-thumb {
     background: rgba(13, 95, 81, 0.24);
@@ -596,6 +597,16 @@ body, html {
     max-height: 660px;
 }
 
+.delete-password-dialog {
+    width: min(92vw, 420px);
+    border: 0;
+    border-radius: 20px;
+}
+
+.delete-password-dialog .btn {
+    border-radius: 12px;
+}
+
 .manage-employees-card .btn,
 .employee-summary-card .btn,
 .audit-log-card .btn {
@@ -623,7 +634,7 @@ body, html {
 
     .employee-summary-card .table-responsive,
     .manage-employees-card .table-responsive,
-    .audit-log-card .audit-log-list {
+    .audit-log-shell .audit-log-list {
         max-height: 280px;
     }
 }

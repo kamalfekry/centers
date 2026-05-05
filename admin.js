@@ -8,11 +8,17 @@ const adminPasswordForm = document.getElementById("adminPasswordForm")
 const adminPasswordInput = document.getElementById("adminPasswordInput")
 const adminPasswordError = document.getElementById("adminPasswordError")
 const statusMessage = document.getElementById("statusMessage")
-const apiHealthLink = document.getElementById("apiHealthLink")
 const refreshBtn = document.getElementById("refreshBtn")
 const exportBtn = document.getElementById("exportBtn")
 const exportSummaryBtn = document.getElementById("exportSummaryBtn")
 const logoutBtn = document.getElementById("logoutBtn")
+const deletePasswordModal = document.getElementById("deletePasswordModal")
+const deletePasswordForm = document.getElementById("deletePasswordForm")
+const deletePasswordPrompt = document.getElementById("deletePasswordPrompt")
+const deletePasswordInput = document.getElementById("deletePasswordInput")
+const deletePasswordError = document.getElementById("deletePasswordError")
+const deletePasswordCancelBtn = document.getElementById("deletePasswordCancelBtn")
+const deletePasswordConfirmBtn = document.getElementById("deletePasswordConfirmBtn")
 
 const totalRecords = document.getElementById("totalRecords")
 const currentMonthLabel = document.getElementById("currentMonthLabel")
@@ -76,6 +82,7 @@ let workSettings = centersData.defaultWorkSettings || {
 let auditLogEntries = []
 let selectedRecordIds = new Set()
 let isSyncingImportedEmployees = false
+let deletePasswordRequest = null
 let currentView = {
   enrichedRecords: [],
   monthRecords: [],
@@ -86,7 +93,6 @@ let currentView = {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  setupApiHealthLink()
   await initializeAdminPage()
 })
 
@@ -108,12 +114,10 @@ syncImportedEmployeesBtn.addEventListener("click", handleSyncImportedEmployees)
 deleteSelectedRecordsBtn.addEventListener("click", handleDeleteSelectedRecords)
 deleteOldRecordsBtn.addEventListener("click", handleDeleteOldRecords)
 selectAllRecordsCheckbox.addEventListener("change", handleSelectAllRecords)
-
-function setupApiHealthLink() {
-  if (apiHealthLink) {
-    apiHealthLink.href = centersData.getApiHealthUrl ? centersData.getApiHealthUrl() : "#"
-  }
-}
+deletePasswordForm.addEventListener("submit", handleDeletePasswordSubmit)
+deletePasswordCancelBtn.addEventListener("click", () => {
+  resolveDeletePasswordRequest(null)
+})
 
 async function initializeAdminPage() {
   try {
@@ -332,7 +336,7 @@ async function handleSyncImportedEmployees() {
 async function handleDeleteOldRecords() {
   const beforeMonthKey = getSelectedMonthKey()
   const monthLabel = formatMonthLabel(beforeMonthKey)
-  const password = window.prompt(`Enter the admin password to delete all attendance records before ${monthLabel}.`)
+  const password = await requestDeletePassword(`Enter the admin password to delete all attendance records before ${monthLabel}.`, "Delete Records")
 
   if (password === null) {
     return
@@ -364,7 +368,7 @@ async function handleDeleteSelectedRecords() {
     return
   }
 
-  const password = window.prompt(`Enter the admin password to delete ${recordIds.length} selected attendance records.`)
+  const password = await requestDeletePassword(`Enter the admin password to delete ${recordIds.length} selected attendance records.`, "Delete Selected")
   if (password === null) {
     return
   }
@@ -387,6 +391,59 @@ async function handleDeleteSelectedRecords() {
     console.error("Unable to delete selected attendance records:", error)
     setStatus(error.message || "Unable to delete selected attendance records.")
   }
+}
+
+function requestDeletePassword(message, confirmLabel) {
+  if (!deletePasswordModal) {
+    return Promise.resolve(window.prompt(message))
+  }
+
+  deletePasswordPrompt.textContent = message
+  deletePasswordConfirmBtn.textContent = confirmLabel || "Confirm"
+  deletePasswordError.classList.add("d-none")
+  deletePasswordForm.reset()
+  deletePasswordModal.classList.remove("d-none")
+  deletePasswordModal.classList.add("d-flex")
+  window.setTimeout(() => {
+    deletePasswordInput.focus()
+  }, 0)
+
+  return new Promise((resolve) => {
+    deletePasswordRequest = resolve
+  })
+}
+
+function handleDeletePasswordSubmit(event) {
+  event.preventDefault()
+
+  const password = deletePasswordInput.value
+  if (!password.trim()) {
+    deletePasswordError.textContent = "Password is required."
+    deletePasswordError.classList.remove("d-none")
+    deletePasswordInput.focus()
+    return
+  }
+
+  resolveDeletePasswordRequest(password.trim())
+}
+
+function resolveDeletePasswordRequest(value) {
+  if (!deletePasswordRequest) {
+    hideDeletePasswordModal()
+    return
+  }
+
+  const resolver = deletePasswordRequest
+  deletePasswordRequest = null
+  hideDeletePasswordModal()
+  resolver(value)
+}
+
+function hideDeletePasswordModal() {
+  deletePasswordModal.classList.add("d-none")
+  deletePasswordModal.classList.remove("d-flex")
+  deletePasswordError.classList.add("d-none")
+  deletePasswordForm.reset()
 }
 
 function handleSelectAllRecords() {
