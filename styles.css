@@ -312,7 +312,7 @@ body, html {
 .employee-detail-grid,
 .management-grid,
 .mini-summary-grid {
-    display: grid;
+    display: flex;
     gap: 16px;
 }
 
@@ -320,18 +320,14 @@ body, html {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
-.insights-grid {
-    grid-template-columns: repeat(2, 1fr);
-    align-items: stretch;
-}
-
+.insights-grid,
 .employee-detail-grid,
 .management-grid {
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
 .employee-detail-grid {
-    align-items: stretch;
+    align-items: start;
 }
 
 .management-grid {
@@ -356,7 +352,7 @@ body, html {
 }
 
 .insights-grid > .records-card {
-    min-height: 320px;
+    height: 320px;
     padding: 18px;
     display: flex;
     flex-direction: column;
@@ -690,11 +686,8 @@ body, html {
 }
 
 @media (max-width: 768px) {
-    .insights-grid {
-        grid-template-columns: 1fr;
-    }
     .insights-grid > .records-card {
-        min-height: 280px;
+        height: 280px;
     }
 
     .management-grid {
