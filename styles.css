@@ -331,7 +331,7 @@ body, html {
 
 .employee-detail-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 1fr) minmax(320px, 1fr);
+    grid-template-columns: 1fr;
     align-items: stretch;
 }
 
@@ -362,6 +362,40 @@ body, html {
     min-height: 720px;
     max-height: 720px;
     overflow: hidden;
+}
+
+.employee-detail-grid > .audit-log-card {
+    width: 100%;
+}
+
+.employee-detail-grid #settingsForm {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    align-items: end;
+}
+
+.employee-detail-grid #settingsForm > [class*="col-"] {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    margin: 0;
+}
+
+.employee-detail-grid #settingsForm .form-control,
+.employee-detail-grid #settingsForm .btn {
+    min-height: 54px;
+    border-radius: 16px;
+}
+
+.employee-detail-grid #settingsForm .form-label {
+    margin-bottom: 0.55rem;
+}
+
+.employee-detail-grid #settingsForm .col-12 {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-start;
 }
 
 .insights-grid > .records-card {
@@ -640,7 +674,7 @@ body, html {
 
 .filters-card .row {
     display: grid;
-    grid-template-columns: minmax(280px, 1.55fr) minmax(220px, 1.15fr) minmax(190px, 1.05fr) minmax(180px, 0.75fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
     align-items: end;
 }
@@ -655,26 +689,26 @@ body, html {
 .filters-card .form-label {
     display: block;
     margin-bottom: 0.55rem;
-    text-align: center;
+    text-align: left;
+    font-weight: 600;
+    color: #315f57;
 }
 
 .filters-card .form-control,
 .filters-card .form-select {
     min-height: 56px;
     border-radius: 16px;
+    width: 100%;
+    background: rgba(250, 252, 251, 0.96);
+}
+
+.filters-card .form-control::placeholder {
+    color: #6e8b84;
 }
 
 @media (max-width: 1440px) {
     .insights-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .employee-detail-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .employee-detail-grid > .employee-detail-shell {
-        grid-column: 1 / -1;
     }
 
     .management-grid {
@@ -756,6 +790,10 @@ body, html {
     }
 
     .filters-card .row {
+        grid-template-columns: 1fr;
+    }
+
+    .employee-detail-grid #settingsForm {
         grid-template-columns: 1fr;
     }
 
