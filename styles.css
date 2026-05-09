@@ -676,10 +676,13 @@ body, html {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
-    align-items: end;
+    align-items: start;
 }
 
 .filters-card .row > [class*="col-"] {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
     width: 100%;
     max-width: none;
     padding: 0;
@@ -688,6 +691,8 @@ body, html {
 
 .filters-card .form-label {
     display: block;
+    min-height: 28px;
+    line-height: 1.25;
     margin-bottom: 0.55rem;
     text-align: left;
     font-weight: 600;
@@ -696,10 +701,13 @@ body, html {
 
 .filters-card .form-control,
 .filters-card .form-select {
+    height: 56px;
     min-height: 56px;
+    line-height: 1.4;
     border-radius: 16px;
     width: 100%;
     background: rgba(250, 252, 251, 0.96);
+    margin-top: 0;
 }
 
 .filters-card .form-control::placeholder {
